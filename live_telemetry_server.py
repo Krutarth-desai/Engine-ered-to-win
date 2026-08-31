@@ -31,20 +31,19 @@ DASHBOARD_HTML = """
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-base: #070b14;
-            --bg-surface: #0e1526;
-            --bg-card: rgba(18, 28, 48, 0.75);
-            --border-glow: rgba(56, 189, 248, 0.2);
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --accent-cyan: #38bdf8;
-            --accent-blue: #2563eb;
-            --accent-emerald: #10b981;
-            --accent-amber: #f59e0b;
-            --accent-rose: #ef4444;
-            --accent-purple: #a855f7;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --bg-base: #F3F0E9;
+            --bg-surface: #E8E4DA;
+            --bg-glass: rgba(255, 252, 245, 0.60);
+            --border-glass: rgba(70, 65, 55, 0.10);
+            --border-subtle: rgba(70, 65, 55, 0.07);
+            --accent-amber: #C47A3C;
+            --accent-blue: #4A607A;
+            --accent-emerald: #4F8068;
+            --accent-warn: #B88A45;
+            --accent-rose: #B85C52;
+            --text-primary: #292722;
+            --text-secondary: #69645B;
+            --text-muted: #918B80;
         }
 
         * {
@@ -56,32 +55,25 @@ DASHBOARD_HTML = """
         body {
             background-color: var(--bg-base);
             background-image: 
-                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
-                linear-gradient(to bottom, rgba(7, 11, 20, 0.95), rgba(7, 11, 20, 0.98));
+                radial-gradient(at 15% 15%, rgba(220, 212, 198, 0.35) 0px, transparent 50%),
+                radial-gradient(at 85% 85%, rgba(210, 202, 188, 0.40) 0px, transparent 50%),
+                linear-gradient(rgba(70, 65, 55, 0.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(70, 65, 55, 0.045) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+            background-attachment: fixed;
             color: var(--text-primary);
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
         }
 
-        /* Scanline Overlay for Aerospace HMI feel */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px);
-            pointer-events: none;
-            z-index: 9999;
-            opacity: 0.35;
-        }
-
         header {
-            background: rgba(14, 21, 38, 0.85);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(243, 240, 233, 0.85);
+            backdrop-filter: blur(20px) saturate(110%);
+            -webkit-backdrop-filter: blur(20px) saturate(110%);
+            border-bottom: 1px solid var(--border-glass);
             padding: 0.85rem 1.75rem;
             display: flex;
             justify-content: space-between;
@@ -98,30 +90,31 @@ DASHBOARD_HTML = """
         }
 
         .logo-badge {
-            background: linear-gradient(135deg, #0284c7, #2563eb);
-            padding: 0.4rem 0.75rem;
+            background: rgba(41, 39, 34, 0.90);
+            border: 1px solid rgba(70, 65, 55, 0.15);
+            padding: 0.35rem 0.75rem;
             border-radius: 6px;
             font-family: 'Chakra Petch', sans-serif;
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             letter-spacing: 1.5px;
-            color: #fff;
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            color: #F3F0E9;
         }
 
         .brand-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-size: 1.3rem;
+            font-weight: 750;
             letter-spacing: 0.5px;
-            color: #ffffff;
+            color: #1E2022;
         }
 
         .brand-subtitle {
             font-size: 0.75rem;
-            color: var(--accent-cyan);
+            color: var(--accent-amber);
             letter-spacing: 1px;
             text-transform: uppercase;
+            font-weight: 600;
         }
 
         .mission-status-bar {
@@ -136,12 +129,12 @@ DASHBOARD_HTML = """
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            background: rgba(16, 185, 129, 0.1);
+            background: rgba(79, 128, 104, 0.10);
             color: var(--accent-emerald);
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            border: 1px solid rgba(79, 128, 104, 0.25);
             padding: 0.35rem 0.8rem;
             border-radius: 999px;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .status-dot {
@@ -149,7 +142,6 @@ DASHBOARD_HTML = """
             height: 8px;
             background: currentColor;
             border-radius: 50%;
-            box-shadow: 0 0 8px currentColor;
             animation: pulse 1.5s infinite;
         }
 
@@ -159,35 +151,34 @@ DASHBOARD_HTML = """
         }
 
         .metric-tag {
-            color: var(--text-muted);
+            color: #69645B;
+            font-weight: 500;
         }
         .metric-val {
-            color: var(--text-primary);
-            font-weight: 600;
+            color: #1E2022;
+            font-weight: 700;
         }
 
         main {
-            padding: 1.25rem 1.75rem;
+            padding: 1.25rem 1.75rem 2rem 1.75rem;
             display: flex;
             flex-direction: column;
-            gap: 1.25rem;
+            gap: 1.5rem;
             flex: 1;
-        }
-
-        .top-deck {
-            display: grid;
-            grid-template-columns: 310px 1fr 310px;
-            gap: 1.25rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
         }
 
         .panel {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-glow);
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px) saturate(110%);
+            -webkit-backdrop-filter: blur(20px) saturate(110%);
+            border: 1px solid var(--border-glass);
             border-radius: 12px;
             padding: 1.15rem;
             position: relative;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 30px rgba(50, 45, 35, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.65);
             display: flex;
             flex-direction: column;
         }
@@ -203,112 +194,194 @@ DASHBOARD_HTML = """
 
         .panel-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.92rem;
+            font-size: 0.96rem;
+            font-weight: 750;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            color: #1E2022;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
-        /* Health Meter Widget */
-        .health-display {
+        /* ==================================================== */
+        /* 1. TOP — ENGINE HEALTH / STATUS HERO DECK            */
+        /* ==================================================== */
+        .top-status-deck {
+            width: 100%;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
+        }
+
+        .status-hero-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px) saturate(110%);
+            -webkit-backdrop-filter: blur(20px) saturate(110%);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 1.5rem 1.75rem;
+            box-shadow: 0 10px 30px rgba(50, 45, 35, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+            display: flex;
+            align-items: center;
+            align-content: center;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .status-hero-left {
+            display: flex;
+            align-items: center;
+            align-content: center;
+            justify-content: center;
+            gap: 2.25rem;
+            flex-wrap: wrap;
+            margin: 0 auto;
+            padding: 0;
+            max-width: 100%;
+        }
+
+        .health-display-hero {
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0.25rem 0;
+            margin: 0;
+            padding: 0;
+            flex-shrink: 0;
         }
 
         .health-circle-wrapper {
             position: relative;
-            width: 155px;
-            height: 155px;
+            width: 140px;
+            height: 140px;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
+            margin: 0;
+            padding: 0;
         }
 
         .health-circle-svg {
             transform: rotate(-90deg);
             width: 100%;
             height: 100%;
+            display: block;
         }
 
         .health-circle-bg {
             fill: none;
-            stroke: rgba(255, 255, 255, 0.06);
-            stroke-width: 12;
+            stroke: rgba(70, 65, 55, 0.08);
+            stroke-width: 10;
         }
 
         .health-circle-bar {
             fill: none;
             stroke: var(--accent-emerald);
-            stroke-width: 12;
+            stroke-width: 10;
             stroke-linecap: round;
             stroke-dasharray: 440;
             stroke-dashoffset: 44;
             transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease;
-            filter: drop-shadow(0 0 8px currentColor);
         }
 
         .health-inner-text {
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
         }
 
         .health-number {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 700;
+            font-size: 2.4rem;
+            font-weight: 750;
             line-height: 1;
-            color: var(--text-primary);
+            color: #1E2022;
         }
 
         .health-unit {
-            font-size: 0.7rem;
-            color: var(--text-muted);
+            font-size: 0.65rem;
+            color: #69645B;
             letter-spacing: 1px;
             margin-top: 4px;
+            font-weight: 500;
         }
 
-        .health-meta-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.6rem;
-            width: 100%;
-            margin-top: 0.85rem;
+        .status-hero-meta {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 0.85rem;
+            margin: 0;
+            padding: 0;
         }
 
-        .meta-stat {
-            background: rgba(14, 21, 38, 0.6);
-            padding: 0.5rem 0.65rem;
+        .status-badge-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 0;
+            padding: 0;
+        }
+
+        .status-stats-row {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            margin: 0;
+            padding: 0;
+        }
+
+        .hero-stat-box {
+            background: rgba(255, 255, 255, 0.55);
+            padding: 0.65rem 1.15rem;
             border-radius: 8px;
             border: 1px solid var(--border-subtle);
-            text-align: center;
+            min-width: 150px;
         }
 
         .meta-label {
             font-size: 0.68rem;
-            color: var(--text-muted);
+            color: #5C574E;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            font-weight: 600;
         }
 
         .meta-val {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.98rem;
+            font-size: 1.05rem;
             font-weight: 700;
             margin-top: 2px;
-            color: var(--accent-cyan);
+            color: var(--accent-amber);
+        }
+
+        .meta-val.hero-val {
+            font-size: 1.35rem;
         }
 
         /* ==================================================== */
-        /* MALE UAV DIGITAL TWIN MINI-CLONE SCHEMATIC (CENTER)  */
+        /* 2. CENTER — DIGITAL TWIN MAIN CENTERPIECE            */
         /* ==================================================== */
+        .center-twin-deck {
+            width: 100%;
+        }
+
+        .hero-twin-card {
+            min-height: 460px;
+        }
+
         .uav-twin-panel {
             overflow: hidden;
             display: flex;
@@ -322,11 +395,12 @@ DASHBOARD_HTML = """
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at center, rgba(14, 28, 56, 0.4) 0%, rgba(7, 11, 20, 0.8) 100%);
+            background: rgba(235, 230, 220, 0.50);
             border-radius: 8px;
-            border: 1px solid rgba(56, 189, 248, 0.15);
-            min-height: 250px;
+            border: 1px solid rgba(70, 65, 55, 0.08);
+            min-height: 380px;
             overflow: hidden;
+            padding: 1rem;
         }
 
         /* Tactical HUD Grid and Reticle */
@@ -335,8 +409,8 @@ DASHBOARD_HTML = """
             top: 0; left: 0; width: 100%; height: 100%;
             background-size: 24px 24px;
             background-image: 
-                linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+                linear-gradient(to right, rgba(70, 65, 55, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(70, 65, 55, 0.03) 1px, transparent 1px);
             pointer-events: none;
         }
 
@@ -344,10 +418,10 @@ DASHBOARD_HTML = """
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 320px;
-            height: 320px;
+            width: 380px;
+            height: 380px;
             transform: translate(-50%, -50%);
-            border: 1px dashed rgba(56, 189, 248, 0.1);
+            border: 1px dashed rgba(70, 65, 55, 0.10);
             border-radius: 50%;
             pointer-events: none;
         }
@@ -357,33 +431,48 @@ DASHBOARD_HTML = """
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 180px;
-            height: 180px;
+            width: 220px;
+            height: 220px;
             transform: translate(-50%, -50%);
-            border: 1px solid rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(70, 65, 55, 0.06);
             border-radius: 50%;
         }
 
         .uav-svg-model {
             width: 100%;
-            max-height: 255px;
+            max-height: 330px;
             z-index: 10;
-            filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.15));
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* SVG Dynamic Styling for Subsystems */
+        /* ==================================================== */
+        /* 3. BOTTOM — EXISTING DATA DECK                       */
+        /* ==================================================== */
+        .bottom-data-deck {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .fault-matrix-panel .scenarios-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 0.6rem;
+        }
+
+        /* SVG Dynamic Styling for Subsystems (Warm Graphite & Sage Green CAD Palette) */
         .uav-hull {
-            fill: #0c162c;
-            stroke: #38bdf8;
+            fill: url(#fuselageGrad);
+            stroke: #6B655A;
             stroke-width: 1.5;
             transition: all 0.3s ease;
         }
 
         .uav-wing-structure {
-            fill: #091122;
-            stroke: rgba(56, 189, 248, 0.4);
-            stroke-width: 1.2;
+            fill: url(#wingGrad);
+            stroke: #6B655A;
+            stroke-width: 1.5;
         }
 
         .uav-subsystem {
@@ -392,56 +481,53 @@ DASHBOARD_HTML = """
         }
 
         .uav-subsystem:hover {
-            filter: drop-shadow(0 0 8px #38bdf8);
+            opacity: 0.90;
         }
 
-        /* Normal Glowing State */
+        /* Normal State */
         .part-nominal {
-            fill: rgba(16, 185, 129, 0.15);
-            stroke: #10b981;
+            fill: rgba(79, 128, 104, 0.28);
+            stroke: #4F8068;
             stroke-width: 1.5;
         }
 
         /* Warning State */
         .part-warning {
-            fill: rgba(245, 158, 11, 0.35) !important;
-            stroke: #f59e0b !important;
-            stroke-width: 2 !important;
-            filter: drop-shadow(0 0 10px #f59e0b) !important;
-            animation: pulse-warn 1.2s infinite alternate;
+            fill: rgba(184, 138, 69, 0.35) !important;
+            stroke: #B88A45 !important;
+            stroke-width: 1.8 !important;
+            animation: pulse-warn 1.5s infinite alternate;
         }
 
         /* Critical / Anomaly State */
         .part-critical {
-            fill: rgba(239, 68, 68, 0.45) !important;
-            stroke: #ef4444 !important;
-            stroke-width: 2.5 !important;
-            filter: drop-shadow(0 0 15px #ef4444) !important;
-            animation: pulse-crit 0.8s infinite alternate;
+            fill: rgba(184, 92, 82, 0.40) !important;
+            stroke: #B85C52 !important;
+            stroke-width: 2.2 !important;
+            animation: pulse-crit 1.0s infinite alternate;
         }
 
         /* Thermal Wave Glow for Overheating */
         .part-thermal {
-            fill: rgba(255, 87, 34, 0.45) !important;
-            stroke: #ff5722 !important;
-            stroke-width: 2.5 !important;
-            filter: drop-shadow(0 0 16px #ff5722) !important;
-            animation: pulse-thermal 0.7s infinite alternate;
+            fill: rgba(196, 122, 60, 0.40) !important;
+            stroke: #C47A3C !important;
+            stroke-width: 2.2 !important;
+            animation: pulse-thermal 0.9s infinite alternate;
         }
 
         @keyframes pulse-warn {
-            0% { opacity: 0.6; }
-            100% { opacity: 1; filter: drop-shadow(0 0 14px #f59e0b); }
+            0% { opacity: 0.75; }
+            100% { opacity: 1; }
         }
 
         @keyframes pulse-crit {
-            0% { opacity: 0.5; transform: scale(0.98); }
-            100% { opacity: 1; transform: scale(1.02); filter: drop-shadow(0 0 18px #ef4444); }
+            0% { opacity: 0.65; transform: scale(0.99); }
+            100% { opacity: 1; transform: scale(1.01); }
         }
 
         @keyframes pulse-thermal {
-            0% { opacity: 0.6; fill: rgba(239, 68, 68, 0.3); }
-            100% { opacity: 1; fill: rgba(255, 111, 0, 0.6); filter: drop-shadow(0 0 20px #ff3d00); }
+            0% { opacity: 0.75; fill: rgba(184, 92, 82, 0.35); }
+            100% { opacity: 1; fill: rgba(196, 122, 60, 0.50); }
         }
 
         /* Spinning Propeller Animation */
@@ -461,15 +547,15 @@ DASHBOARD_HTML = """
             bottom: 8px;
             left: 10px;
             right: 10px;
-            background: rgba(14, 21, 38, 0.88);
-            border: 1px solid var(--border-subtle);
+            background: rgba(255, 252, 245, 0.90);
+            border: 1px solid var(--border-glass);
             border-radius: 6px;
             padding: 0.4rem 0.75rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 0.75rem;
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(12px);
             z-index: 20;
         }
 
@@ -487,8 +573,8 @@ DASHBOARD_HTML = """
         }
 
         .uav-btn-mini {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.50);
+            border: 1px solid rgba(70, 65, 55, 0.10);
             color: var(--text-secondary);
             padding: 0.2rem 0.5rem;
             border-radius: 4px;
@@ -499,9 +585,9 @@ DASHBOARD_HTML = """
         }
 
         .uav-btn-mini:hover, .uav-btn-mini.active {
-            background: rgba(56, 189, 248, 0.2);
-            color: var(--accent-cyan);
-            border-color: var(--accent-cyan);
+            background: rgba(196, 122, 60, 0.12);
+            color: var(--text-primary);
+            border-color: #C47A3C;
         }
 
         /* Hover Subsystem Tooltip */
@@ -509,16 +595,16 @@ DASHBOARD_HTML = """
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(7, 11, 20, 0.92);
-            border: 1px solid var(--accent-cyan);
+            background: rgba(41, 39, 34, 0.95);
+            border: 1px solid rgba(70, 65, 55, 0.20);
             border-radius: 6px;
             padding: 0.35rem 0.6rem;
             font-size: 0.72rem;
             font-family: 'JetBrains Mono', monospace;
-            color: #fff;
+            color: #F3F0E9;
             pointer-events: none;
             z-index: 30;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
             display: none;
         }
 
@@ -530,8 +616,8 @@ DASHBOARD_HTML = """
         }
 
         .telemetry-card {
-            background: rgba(14, 21, 38, 0.7);
-            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(70, 65, 55, 0.08);
             border-radius: 8px;
             padding: 0.75rem;
             display: flex;
@@ -543,8 +629,8 @@ DASHBOARD_HTML = """
         }
 
         .telemetry-card:hover {
-            border-color: var(--accent-cyan);
-            background: rgba(20, 32, 56, 0.8);
+            border-color: #C47A3C;
+            background: rgba(255, 255, 255, 0.75);
         }
 
         .card-top {
@@ -555,30 +641,31 @@ DASHBOARD_HTML = """
 
         .card-name {
             font-size: 0.72rem;
-            color: var(--text-secondary);
+            color: #3F3C34;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-weight: 500;
+            font-weight: 650;
         }
 
         .card-unit {
             font-size: 0.65rem;
-            color: var(--text-muted);
+            color: #7E786D;
             font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
         }
 
         .card-val {
             font-family: 'JetBrains Mono', monospace;
             font-size: 1.4rem;
             font-weight: 700;
-            color: #ffffff;
+            color: #1E2022;
             margin: 0.3rem 0 0.15rem 0;
             letter-spacing: -0.5px;
         }
 
         .card-progress-bar {
             height: 4px;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(70, 65, 55, 0.08);
             border-radius: 2px;
             overflow: hidden;
             margin-top: 0.35rem;
@@ -586,7 +673,7 @@ DASHBOARD_HTML = """
 
         .card-progress-fill {
             height: 100%;
-            background: var(--accent-cyan);
+            background: var(--accent-amber);
             width: 50%;
             transition: width 0.4s ease, background 0.3s ease;
         }
@@ -599,13 +686,13 @@ DASHBOARD_HTML = """
         }
 
         .scenario-btn {
-            background: rgba(14, 21, 38, 0.8);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(70, 65, 55, 0.08);
+            color: #292722;
             padding: 0.5rem 0.75rem;
             border-radius: 8px;
             font-size: 0.78rem;
-            font-weight: 600;
+            font-weight: 650;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -616,30 +703,31 @@ DASHBOARD_HTML = """
         }
 
         .scenario-btn:hover {
-            border-color: var(--accent-cyan);
-            color: var(--text-primary);
-            background: rgba(56, 189, 248, 0.1);
+            border-color: var(--accent-amber);
+            color: #1E2022;
+            background: rgba(196, 122, 60, 0.08);
         }
 
         .scenario-btn.active {
             border-color: var(--accent-rose);
-            background: rgba(239, 68, 68, 0.15);
-            color: #fff;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+            background: rgba(184, 92, 82, 0.12);
+            color: #1E2022;
         }
 
         .scenario-btn.active.normal {
             border-color: var(--accent-emerald);
-            background: rgba(16, 185, 129, 0.15);
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+            background: rgba(79, 128, 104, 0.12);
+            color: #1E2022;
         }
 
         .scenario-tag {
             font-size: 0.65rem;
             padding: 0.12rem 0.4rem;
             border-radius: 4px;
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(70, 65, 55, 0.08);
+            color: #3F3C34;
             font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
         }
 
         /* Main Split Deck: Left Half (Sensors & Charts) | Right Half (Digital Twin Diagnostics) */
@@ -668,9 +756,12 @@ DASHBOARD_HTML = """
         }
 
         .advisory-box {
-            background: rgba(14, 21, 38, 0.85);
+            background: rgba(255, 255, 255, 0.55);
             border-radius: 8px;
             border-left: 4px solid var(--accent-emerald);
+            border-top: 1px solid rgba(70, 65, 55, 0.08);
+            border-right: 1px solid rgba(70, 65, 55, 0.08);
+            border-bottom: 1px solid rgba(70, 65, 55, 0.08);
             padding: 0.85rem 1rem;
             display: flex;
             flex-direction: column;
@@ -679,23 +770,24 @@ DASHBOARD_HTML = """
         }
 
         .advisory-box.warning {
-            border-left-color: var(--accent-amber);
-            background: rgba(245, 158, 11, 0.08);
+            border-left-color: var(--accent-warn);
+            background: rgba(184, 138, 69, 0.08);
         }
 
         .advisory-box.critical {
             border-left-color: var(--accent-rose);
-            background: rgba(239, 68, 68, 0.1);
+            background: rgba(184, 92, 82, 0.08);
         }
 
         .advisory-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 700;
+            font-size: 0.95rem;
+            font-weight: 750;
             display: flex;
             align-items: center;
             gap: 0.5rem;
             text-transform: uppercase;
+            color: #1E2022;
         }
 
         .advisory-desc {
@@ -707,21 +799,23 @@ DASHBOARD_HTML = """
         .advisory-actions {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.74rem;
-            color: var(--accent-cyan);
-            background: rgba(0,0,0,0.3);
+            color: var(--accent-amber);
+            background: rgba(70, 65, 55, 0.06);
             padding: 0.4rem 0.6rem;
             border-radius: 4px;
+            font-weight: 600;
         }
 
         /* Subsystem PHM & Diagnostics List */
         .diag-section-header {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.78rem;
+            font-size: 0.84rem;
+            font-weight: 750;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text-secondary);
-            margin-top: 0.85rem;
-            margin-bottom: 0.45rem;
+            letter-spacing: 0.5px;
+            color: #1E2022;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -734,8 +828,8 @@ DASHBOARD_HTML = """
         }
 
         .diag-subsystem-item {
-            background: rgba(14, 21, 38, 0.6);
-            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(70, 65, 55, 0.08);
             border-radius: 6px;
             padding: 0.5rem 0.7rem;
             display: flex;
@@ -752,8 +846,9 @@ DASHBOARD_HTML = """
         }
 
         .diag-subsystem-name {
-            font-weight: 600;
-            color: var(--text-primary);
+            font-weight: 650;
+            color: #292722;
+            font-size: 0.76rem;
             display: flex;
             align-items: center;
             gap: 0.4rem;
@@ -768,7 +863,7 @@ DASHBOARD_HTML = """
 
         .diag-progress-bar {
             height: 4px;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(70, 65, 55, 0.08);
             border-radius: 2px;
             overflow: hidden;
         }
@@ -788,8 +883,8 @@ DASHBOARD_HTML = """
         }
 
         .diag-phm-card {
-            background: rgba(14, 21, 38, 0.6);
-            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(70, 65, 55, 0.08);
             border-radius: 6px;
             padding: 0.5rem 0.65rem;
         }
@@ -806,12 +901,12 @@ DASHBOARD_HTML = """
             font-size: 0.95rem;
             font-weight: 700;
             margin-top: 0.15rem;
-            color: var(--accent-cyan);
+            color: var(--accent-amber);
         }
 
         .diag-log-container {
-            background: rgba(7, 11, 20, 0.7);
-            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(70, 65, 55, 0.08);
             border-radius: 6px;
             padding: 0.45rem 0.65rem;
             margin-top: 0.6rem;
@@ -836,9 +931,9 @@ DASHBOARD_HTML = """
             font-family: 'JetBrains Mono', monospace;
         }
 
-        .badge-optimal { background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
-        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
-        .badge-critical { background: rgba(239, 68, 68, 0.2); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
+        .badge-optimal { background: rgba(79, 128, 104, 0.12); color: var(--accent-emerald); border: 1px solid rgba(79, 128, 104, 0.3); }
+        .badge-warning { background: rgba(184, 138, 69, 0.12); color: var(--accent-warn); border: 1px solid rgba(184, 138, 69, 0.3); }
+        .badge-critical { background: rgba(184, 92, 82, 0.12); color: var(--accent-rose); border: 1px solid rgba(184, 92, 82, 0.3); }
     </style>
 </head>
 <body>
@@ -864,43 +959,49 @@ DASHBOARD_HTML = """
     </header>
 
     <main>
-        <!-- Top Operational Deck -->
-        <div class="top-deck">
-            <!-- Health & RUL Panel -->
-            <div class="panel">
-                <div class="panel-header">
-                    <span class="panel-title">Engine Health Index</span>
-                    <span id="health-badge" class="status-badge-lg badge-optimal">OPTIMAL</span>
-                </div>
-                <div class="health-display">
-                    <div class="health-circle-wrapper">
-                        <svg class="health-circle-svg" viewBox="0 0 160 160">
-                            <circle class="health-circle-bg" cx="80" cy="80" r="70"></circle>
-                            <circle id="health-circle-bar" class="health-circle-bar" cx="80" cy="80" r="70"></circle>
-                        </svg>
-                        <div class="health-inner-text">
-                            <span id="health-val" class="health-number">100</span>
-                            <span class="health-unit">HEALTH INDEX</span>
+        <!-- 1. TOP — EXISTING ENGINE HEALTH / STATUS -->
+        <div class="top-status-deck">
+            <div class="status-hero-card">
+                <div class="status-hero-left">
+                    <div class="health-display-hero">
+                        <div class="health-circle-wrapper">
+                            <svg class="health-circle-svg" viewBox="0 0 160 160">
+                                <circle class="health-circle-bg" cx="80" cy="80" r="70"></circle>
+                                <circle id="health-circle-bar" class="health-circle-bar" cx="80" cy="80" r="70"></circle>
+                            </svg>
+                            <div class="health-inner-text">
+                                <span id="health-val" class="health-number">100</span>
+                                <span class="health-unit">HEALTH INDEX</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="status-hero-meta">
+                        <div class="status-badge-row">
+                            <span class="panel-title">Engine Health Index</span>
+                            <span id="health-badge" class="status-badge-lg badge-optimal">OPTIMAL</span>
+                        </div>
+                        <div class="status-stats-row">
+                            <div class="hero-stat-box">
+                                <div class="meta-label">Est. RUL</div>
+                                <div class="meta-val hero-val" id="val-rul">160 hrs</div>
+                            </div>
+                            <div class="hero-stat-box">
+                                <div class="meta-label">Anomaly State</div>
+                                <div class="meta-val hero-val" id="val-state" style="color: var(--accent-emerald);">NORMAL</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="health-meta-grid">
-                    <div class="meta-stat">
-                        <div class="meta-label">Est. RUL</div>
-                        <div class="meta-val" id="val-rul">160 hrs</div>
-                    </div>
-                    <div class="meta-stat">
-                        <div class="meta-label">Anomaly State</div>
-                        <div class="meta-val" id="val-state" style="color: var(--accent-emerald);">NORMAL</div>
-                    </div>
-                </div>
             </div>
+        </div>
 
-            <!-- MALE UAV DIGITAL TWIN MINI-CLONE VISUALIZER -->
-            <div class="panel uav-twin-panel">
+        <!-- 2. CENTER — DIGITAL TWIN ENGINE MAIN VISUAL FOCUS -->
+        <div class="center-twin-deck">
+            <div class="panel uav-twin-panel hero-twin-card">
                 <div class="panel-header">
                     <span class="panel-title">
-                        <span>🛩️</span> MALE UAV Airframe & Subsystem Mini-Clone
+                        MALE UAV Airframe & Subsystem Mini-Clone
                     </span>
                     <div class="uav-view-controls">
                         <button class="uav-btn-mini active" id="btn-view-all" onclick="setViewMode('full')">Full Drone</button>
@@ -917,38 +1018,34 @@ DASHBOARD_HTML = """
                     <!-- Vector Graphic of MALE UAV Digital Twin -->
                     <svg class="uav-svg-model" id="uav-svg" viewBox="0 0 540 270" xmlns="http://www.w3.org/2000/svg">
                         <defs>
-                            <!-- Grid & HUD gradients -->
+                            <!-- Engineering CAD Warm Neutral Gradients -->
                             <linearGradient id="fuselageGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#0f172a" />
-                                <stop offset="50%" stop-color="#1e293b" />
-                                <stop offset="100%" stop-color="#0f172a" />
+                                <stop offset="0%" stop-color="#363430" />
+                                <stop offset="50%" stop-color="#4D4942" />
+                                <stop offset="100%" stop-color="#363430" />
                             </linearGradient>
                             <linearGradient id="wingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#0b1329" />
-                                <stop offset="50%" stop-color="#1e293b" />
-                                <stop offset="100%" stop-color="#0b1329" />
+                                <stop offset="0%" stop-color="#3F3C36" />
+                                <stop offset="50%" stop-color="#545048" />
+                                <stop offset="100%" stop-color="#3F3C36" />
                             </linearGradient>
-                            <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
-                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                            </filter>
                         </defs>
 
                         <!-- High-Aspect-Ratio MALE UAV Glider Wings -->
                         <g id="uav-wings" class="uav-wing-structure">
                             <!-- Left Wing -->
-                            <polygon points="180,135 210,25 240,25 230,135" fill="url(#wingGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
+                            <polygon points="180,135 210,25 240,25 230,135" fill="url(#wingGrad)" stroke="#6B655A" stroke-width="1.5" />
                             <!-- Right Wing -->
-                            <polygon points="180,135 210,245 240,245 230,135" fill="url(#wingGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
+                            <polygon points="180,135 210,245 240,245 230,135" fill="url(#wingGrad)" stroke="#6B655A" stroke-width="1.5" />
                             <!-- Wing Internal Fuel Tanks -->
-                            <line x1="200" y1="55" x2="225" y2="55" stroke="rgba(56, 189, 248, 0.25)" stroke-dasharray="3,2" />
-                            <line x1="200" y1="215" x2="225" y2="215" stroke="rgba(56, 189, 248, 0.25)" stroke-dasharray="3,2" />
+                            <line x1="200" y1="55" x2="225" y2="55" stroke="rgba(196, 122, 60, 0.40)" stroke-dasharray="3,2" />
+                            <line x1="200" y1="215" x2="225" y2="215" stroke="rgba(196, 122, 60, 0.40)" stroke-dasharray="3,2" />
                         </g>
 
                         <!-- Inverted V-Tail Empennage -->
                         <g id="uav-tail">
-                            <polygon points="380,135 440,75 455,75 420,135" fill="#0b1329" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
-                            <polygon points="380,135 440,195 455,195 420,135" fill="#0b1329" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
+                            <polygon points="380,135 440,75 455,75 420,135" fill="#3F3C36" stroke="#6B655A" stroke-width="1.5" />
+                            <polygon points="380,135 440,195 455,195 420,135" fill="#3F3C36" stroke="#6B655A" stroke-width="1.5" />
                         </g>
 
                         <!-- Main Fuselage Contour -->
@@ -959,24 +1056,24 @@ DASHBOARD_HTML = """
                            onmouseenter="showTooltip('Avionics & Sensor Bay (Nose)', 'Dual-redundant Flight Computer & CHT Sensor Bus')" 
                            onmouseleave="hideTooltip()">
                             <path d="M 60,135 C 68,122 100,122 110,135 C 100,148 68,148 60,135 Z" class="part-nominal" id="svg-part-avionics" />
-                            <circle cx="85" cy="135" r="3.5" fill="#38bdf8" />
-                            <text x="85" y="112" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">AVIONICS/PROBE</text>
-                            <line x1="85" y1="116" x2="85" y2="126" stroke="#64748b" stroke-width="0.8" />
+                            <circle cx="85" cy="135" r="3.5" fill="#C47A3C" />
+                            <text x="85" y="112" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">AVIONICS/PROBE</text>
+                            <line x1="85" y1="116" x2="85" y2="126" stroke="#6E685D" stroke-width="1.0" />
                         </g>
 
                         <!-- Mid-Fuselage Payload / Fuel Cell -->
-                        <rect x="135" y="126" width="60" height="18" rx="3" fill="rgba(37, 99, 235, 0.1)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1" />
+                        <rect x="135" y="126" width="60" height="18" rx="3" fill="rgba(196, 122, 60, 0.12)" stroke="rgba(196, 122, 60, 0.35)" stroke-width="1" />
 
                         <!-- Coolant Radiator & Ram-Air Intake Subsystem -->
                         <g id="part-radiator" class="uav-subsystem"
                            onmouseenter="showTooltip('Cooling System & Radiator', 'Ram-air cooling scoop, liquid coolant jacket & CHT heat sink')" 
                            onmouseleave="hideTooltip()">
                             <rect x="235" y="115" width="28" height="40" rx="3" class="part-nominal" id="svg-part-radiator" />
-                            <line x1="240" y1="119" x2="240" y2="151" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
-                            <line x1="249" y1="119" x2="249" y2="151" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
-                            <line x1="258" y1="119" x2="258" y2="151" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
-                            <text x="249" y="105" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">RADIATOR/COOLING</text>
-                            <line x1="249" y1="107" x2="249" y2="114" stroke="#64748b" stroke-width="0.8" />
+                            <line x1="240" y1="119" x2="240" y2="151" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+                            <line x1="249" y1="119" x2="249" y2="151" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+                            <line x1="258" y1="119" x2="258" y2="151" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+                            <text x="249" y="105" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">RADIATOR/COOLING</text>
+                            <line x1="249" y1="107" x2="249" y2="114" stroke="#6E685D" stroke-width="1.0" />
                         </g>
 
                         <!-- Piston Engine Block (4-Cylinder Boxer Engine) -->
@@ -991,19 +1088,19 @@ DASHBOARD_HTML = """
                             <!-- Cylinder 2 & 4 (Bottom) -->
                             <rect x="290" y="147" width="22" height="11" rx="2" class="part-nominal" id="svg-cyl-bot1" />
                             <rect x="320" y="147" width="22" height="11" rx="2" class="part-nominal" id="svg-cyl-bot2" />
-                            <text x="315" y="98" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PISTON ENGINE BLOCK</text>
-                            <line x1="315" y1="100" x2="315" y2="111" stroke="#64748b" stroke-width="0.8" />
+                            <text x="315" y="98" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PISTON ENGINE BLOCK</text>
+                            <line x1="315" y1="100" x2="315" y2="111" stroke="#6E685D" stroke-width="1.0" />
                         </g>
 
                         <!-- Fuel Injection Rail Subsystem -->
                         <g id="part-fuel-system" class="uav-subsystem"
                            onmouseenter="showTooltip('Fuel Injection Rail', 'High-pressure electronic fuel rail & port injectors')" 
                            onmouseleave="hideTooltip()">
-                            <path d="M 215,135 L 285,130 M 285,130 L 345,130" stroke="#38bdf8" stroke-width="1.8" fill="none" id="svg-part-fuel" />
-                            <circle cx="301" cy="130" r="2.5" fill="#38bdf8" id="svg-inj-1" />
-                            <circle cx="331" cy="130" r="2.5" fill="#38bdf8" id="svg-inj-2" />
-                            <text x="300" y="174" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">FUEL RAIL</text>
-                            <line x1="300" y1="166" x2="300" y2="135" stroke="#64748b" stroke-width="0.8" />
+                            <path d="M 215,135 L 285,130 M 285,130 L 345,130" stroke="#C47A3C" stroke-width="1.8" fill="none" id="svg-part-fuel" />
+                            <circle cx="301" cy="130" r="2.5" fill="#C47A3C" id="svg-inj-1" />
+                            <circle cx="331" cy="130" r="2.5" fill="#C47A3C" id="svg-inj-2" />
+                            <text x="300" y="174" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">FUEL RAIL</text>
+                            <line x1="300" y1="166" x2="300" y2="135" stroke="#6E685D" stroke-width="1.0" />
                         </g>
 
                         <!-- Lubrication Sump & Oil Lines Subsystem -->
@@ -1011,27 +1108,27 @@ DASHBOARD_HTML = """
                            onmouseenter="showTooltip('Lubrication & Oil Circuit', 'Oil sump, mechanical scavenge pump & oil cooling lines')" 
                            onmouseleave="hideTooltip()">
                             <rect x="360" y="125" width="26" height="20" rx="3" class="part-nominal" id="svg-part-oil" />
-                            <path d="M 350,140 L 360,140" stroke="#10b981" stroke-width="1.5" />
-                            <text x="373" y="174" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">OIL SUMP/PUMP</text>
-                            <line x1="373" y1="166" x2="373" y2="147" stroke="#64748b" stroke-width="0.8" />
+                            <path d="M 350,140 L 360,140" stroke="#4F8068" stroke-width="1.5" />
+                            <text x="373" y="174" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">OIL SUMP/PUMP</text>
+                            <line x1="373" y1="166" x2="373" y2="147" stroke="#6E685D" stroke-width="1.0" />
                         </g>
 
                         <!-- Vibration Dampening Mounts -->
                         <g id="part-mounts" class="uav-subsystem"
                            onmouseenter="showTooltip('Engine Dynafocal Mounts', 'Vibration isolation dampers & airframe structural nacelle')" 
                            onmouseleave="hideTooltip()">
-                            <circle cx="282" cy="120" r="3" fill="#64748b" id="svg-mount-1" />
-                            <circle cx="282" cy="150" r="3" fill="#64748b" id="svg-mount-2" />
-                            <circle cx="352" cy="120" r="3" fill="#64748b" id="svg-mount-3" />
-                            <circle cx="352" cy="150" r="3" fill="#64748b" id="svg-mount-4" />
+                            <circle cx="282" cy="120" r="3" fill="#6E685D" id="svg-mount-1" />
+                            <circle cx="282" cy="150" r="3" fill="#6E685D" id="svg-mount-2" />
+                            <circle cx="352" cy="120" r="3" fill="#6E685D" id="svg-mount-3" />
+                            <circle cx="352" cy="150" r="3" fill="#6E685D" id="svg-mount-4" />
                         </g>
 
                         <!-- Exhaust Header & Turbocharger -->
                         <g id="part-exhaust" class="uav-subsystem"
                            onmouseenter="showTooltip('Exhaust & Turbocharger', 'Inconel exhaust headers & variable geometry turbine (EGT sensor zone)')" 
                            onmouseleave="hideTooltip()">
-                            <path d="M 345,123 C 375,116 395,118 410,124" stroke="#ef4444" stroke-width="2" fill="none" id="svg-part-exhaust" />
-                            <circle cx="412" cy="124" r="4.5" fill="#ef4444" opacity="0.8" />
+                            <path d="M 345,123 C 375,116 395,118 410,124" stroke="#B85C52" stroke-width="2" fill="none" id="svg-part-exhaust" />
+                            <circle cx="412" cy="124" r="4.5" fill="#B85C52" opacity="0.8" />
                         </g>
 
                         <!-- Pusher Propeller Assembly (Rear) -->
@@ -1039,25 +1136,25 @@ DASHBOARD_HTML = """
                            onmouseenter="showTooltip('Pusher Propeller Hub', 'Variable-pitch composite pusher propeller assembly')" 
                            onmouseleave="hideTooltip()">
                             <!-- Propeller Hub -->
-                            <circle cx="472" cy="135" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="1" id="svg-part-propeller" />
+                            <circle cx="472" cy="135" r="5" fill="#C47A3C" stroke="#ffffff" stroke-width="1" id="svg-part-propeller" />
                             <!-- Rotating Blade Disc Effect -->
-                            <ellipse cx="472" cy="135" rx="3" ry="50" fill="rgba(56, 189, 248, 0.15)" stroke="rgba(56, 189, 248, 0.4)" stroke-dasharray="4,2" />
+                            <ellipse cx="472" cy="135" rx="3" ry="50" fill="rgba(196, 122, 60, 0.15)" stroke="rgba(196, 122, 60, 0.3)" stroke-dasharray="4,2" />
                             <!-- Propeller Blades with dynamic spin -->
                             <g class="propeller-blade" id="prop-blades">
-                                <line x1="472" y1="90" x2="472" y2="180" stroke="#f8fafc" stroke-width="3" stroke-linecap="round" />
-                                <circle cx="472" cy="90" r="2.5" fill="#ef4444" />
-                                <circle cx="472" cy="180" r="2.5" fill="#ef4444" />
+                                <line x1="472" y1="90" x2="472" y2="180" stroke="#3F3C36" stroke-width="3" stroke-linecap="round" />
+                                <circle cx="472" cy="90" r="2.5" fill="#B85C52" />
+                                <circle cx="472" cy="180" r="2.5" fill="#B85C52" />
                             </g>
-                            <text x="472" y="75" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PUSHER PROP</text>
-                            <line x1="472" y1="78" x2="472" y2="88" stroke="#64748b" stroke-width="0.8" />
+                            <text x="472" y="75" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PUSHER PROP</text>
+                            <line x1="472" y1="78" x2="472" y2="88" stroke="#6E685D" stroke-width="1.0" />
                         </g>
 
                         <!-- Anomaly Targeting Crosshair / Hotspot Pin -->
                         <g id="anomaly-reticle" style="display: none;">
-                            <circle cx="315" cy="135" r="24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3">
+                            <circle cx="315" cy="135" r="24" fill="none" stroke="#B85C52" stroke-width="1.5" stroke-dasharray="4,3">
                                 <animateTransform attributeName="transform" type="rotate" from="0 315 135" to="360 315 135" dur="4s" repeatCount="indefinite" />
                             </circle>
-                            <circle cx="315" cy="135" r="4" fill="#ef4444" />
+                            <circle cx="315" cy="135" r="4" fill="#B85C52" />
                         </g>
                     </svg>
 
@@ -1073,291 +1170,294 @@ DASHBOARD_HTML = """
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- 3. BOTTOM — EXISTING TELEMETRY, CHARTS & DIAGNOSTICS DATA -->
+        <div class="bottom-data-deck">
             <!-- Fault Injection Simulator (Interactive Demo) -->
-            <div class="panel">
+            <div class="panel fault-matrix-panel">
                 <div class="panel-header">
                     <span class="panel-title">Fault Injection Matrix</span>
                     <span class="scenario-tag" id="active-scenario-tag">NORMAL</span>
                 </div>
                 <div class="scenarios-container">
                     <button class="scenario-btn active normal" onclick="injectScenario('Normal')">
-                        <span>🟢 Nominal Operation</span>
+                        <span>Nominal Operation</span>
                         <span class="scenario-tag">HEALTHY</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Overheating')">
-                        <span>🔥 Cooling / Overheating</span>
+                        <span>Cooling / Overheating</span>
                         <span class="scenario-tag">THERMAL</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Injector_Degradation')">
-                        <span>⚙️ Injector Degradation</span>
+                        <span>Injector Degradation</span>
                         <span class="scenario-tag">COMBUSTION</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Lubrication')">
-                        <span>🛢️ Lubrication Starvation</span>
+                        <span>Lubrication Starvation</span>
                         <span class="scenario-tag">HYDRAULIC</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Vibration_Fault')">
-                        <span>〰️ Abnormal Vibration</span>
+                        <span>Abnormal Vibration</span>
                         <span class="scenario-tag">MECHANICAL</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Sensor_Drift')">
-                        <span>📡 CHT Sensor Drift</span>
+                        <span>CHT Sensor Drift</span>
                         <span class="scenario-tag">AVIONICS</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Misfire')">
-                        <span>💥 Cylinder Misfire</span>
+                        <span>Cylinder Misfire</span>
                         <span class="scenario-tag">IGNITION</span>
                     </button>
                 </div>
             </div>
-        </div>
 
-        <!-- Split Deck: Left Half (Sensors & Waveforms) | Right Half (Digital Twin Predictive Diagnostics) -->
-        <div class="split-deck">
-            <!-- LEFT HALF: Live Sensor Telemetry Bars & Dynamics Waveform Chart -->
-            <div class="split-col">
-                <!-- Live Piston Engine Sensor Telemetry -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <span class="panel-title">Live Sensor Telemetry Gauges</span>
-                        <span class="metric-tag" style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" id="val-timestamp">--:--:--</span>
+            <!-- Split Deck: Left Half (Sensors & Waveforms) | Right Half (Digital Twin Predictive Diagnostics) -->
+            <div class="split-deck">
+                <!-- LEFT HALF: Live Sensor Telemetry Bars & Dynamics Waveform Chart -->
+                <div class="split-col">
+                    <!-- Live Piston Engine Sensor Telemetry -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Live Sensor Telemetry Gauges</span>
+                            <span class="metric-tag" style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" id="val-timestamp">--:--:--</span>
+                        </div>
+                        <div class="telemetry-grid">
+                            <!-- RPM -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Rotational Speed</span>
+                                    <span class="card-unit">RPM</span>
+                                </div>
+                                <div class="card-val" id="val-rpm">6100</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-rpm" class="card-progress-fill" style="width: 75%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- CHT -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Cylinder Head (CHT)</span>
+                                    <span class="card-unit">°C</span>
+                                </div>
+                                <div class="card-val" id="val-cht">150.0</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-cht" class="card-progress-fill" style="width: 60%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- EGT -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Exhaust Gas (EGT)</span>
+                                    <span class="card-unit">°C</span>
+                                </div>
+                                <div class="card-val" id="val-egt">700.0</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-egt" class="card-progress-fill" style="width: 70%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Oil Pressure -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Oil Pressure</span>
+                                    <span class="card-unit">BAR</span>
+                                </div>
+                                <div class="card-val" id="val-oil-p">4.30</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-oil-p" class="card-progress-fill" style="width: 80%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Oil Temp -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Oil Temperature</span>
+                                    <span class="card-unit">°C</span>
+                                </div>
+                                <div class="card-val" id="val-oil-t">95.0</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-oil-t" class="card-progress-fill" style="width: 55%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Fuel Flow -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Fuel Flow</span>
+                                    <span class="card-unit">L/H</span>
+                                </div>
+                                <div class="card-val" id="val-fuel">18.5</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-fuel" class="card-progress-fill" style="width: 65%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Vibration -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Vibration RMS</span>
+                                    <span class="card-unit">g</span>
+                                </div>
+                                <div class="card-val" id="val-vib">0.200</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-vib" class="card-progress-fill" style="width: 25%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Battery -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Bus Voltage</span>
+                                    <span class="card-unit">V</span>
+                                </div>
+                                <div class="card-val" id="val-battery">28.0</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-battery" class="card-progress-fill" style="width: 90%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Timing -->
+                            <div class="telemetry-card">
+                                <div class="card-top">
+                                    <span class="card-name">Injection Timing</span>
+                                    <span class="card-unit">° BTDC</span>
+                                </div>
+                                <div class="card-val" id="val-timing">22.0</div>
+                                <div class="card-progress-bar">
+                                    <div id="prog-timing" class="card-progress-fill" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="telemetry-grid">
-                        <!-- RPM -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Rotational Speed</span>
-                                <span class="card-unit">RPM</span>
-                            </div>
-                            <div class="card-val" id="val-rpm">6100</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-rpm" class="card-progress-fill" style="width: 75%;"></div>
-                            </div>
-                        </div>
 
-                        <!-- CHT -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Cylinder Head (CHT)</span>
-                                <span class="card-unit">°C</span>
-                            </div>
-                            <div class="card-val" id="val-cht">150.0</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-cht" class="card-progress-fill" style="width: 60%;"></div>
-                            </div>
+                    <!-- Dynamic Telemetry Waveform Chart -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Real-Time Thermal & Combustion Dynamics</span>
+                            <span class="metric-tag">Live 30-Second Buffer</span>
                         </div>
-
-                        <!-- EGT -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Exhaust Gas (EGT)</span>
-                                <span class="card-unit">°C</span>
-                            </div>
-                            <div class="card-val" id="val-egt">700.0</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-egt" class="card-progress-fill" style="width: 70%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Oil Pressure -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Oil Pressure</span>
-                                <span class="card-unit">BAR</span>
-                            </div>
-                            <div class="card-val" id="val-oil-p">4.30</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-oil-p" class="card-progress-fill" style="width: 80%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Oil Temp -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Oil Temperature</span>
-                                <span class="card-unit">°C</span>
-                            </div>
-                            <div class="card-val" id="val-oil-t">95.0</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-oil-t" class="card-progress-fill" style="width: 55%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Fuel Flow -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Fuel Flow</span>
-                                <span class="card-unit">L/H</span>
-                            </div>
-                            <div class="card-val" id="val-fuel">18.5</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-fuel" class="card-progress-fill" style="width: 65%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Vibration -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Vibration RMS</span>
-                                <span class="card-unit">g</span>
-                            </div>
-                            <div class="card-val" id="val-vib">0.200</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-vib" class="card-progress-fill" style="width: 25%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Battery -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Bus Voltage</span>
-                                <span class="card-unit">V</span>
-                            </div>
-                            <div class="card-val" id="val-battery">28.0</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-battery" class="card-progress-fill" style="width: 90%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Timing -->
-                        <div class="telemetry-card">
-                            <div class="card-top">
-                                <span class="card-name">Injection Timing</span>
-                                <span class="card-unit">° BTDC</span>
-                            </div>
-                            <div class="card-val" id="val-timing">22.0</div>
-                            <div class="card-progress-bar">
-                                <div id="prog-timing" class="card-progress-fill" style="width: 60%;"></div>
-                            </div>
+                        <div class="chart-container">
+                            <canvas id="telemetryChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <!-- Dynamic Telemetry Waveform Chart -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <span class="panel-title">Real-Time Thermal & Combustion Dynamics</span>
-                        <span class="metric-tag">Live 30-Second Buffer</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="telemetryChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RIGHT HALF: Digital Twin Predictive Diagnostics -->
-            <div class="split-col">
-                <div class="panel" style="flex: 1;">
-                    <div class="panel-header">
-                        <span class="panel-title">
-                            <span>🧠</span> Digital Twin Predictive Diagnostics
-                        </span>
-                        <span class="status-badge-lg badge-optimal" id="phm-mode-badge">PHM AI: ACTIVE</span>
-                    </div>
-
-                    <!-- AI Diagnostic & Action Advisory Card -->
-                    <div id="advisory-card" class="advisory-box">
-                        <div class="advisory-title" id="advisory-title">
-                            <span>🛡️ Propulsion Health: Nominal</span>
+                <!-- RIGHT HALF: Digital Twin Predictive Diagnostics -->
+                <div class="split-col">
+                    <div class="panel" style="flex: 1;">
+                        <div class="panel-header">
+                            <span class="panel-title">
+                                Digital Twin Predictive Diagnostics
+                            </span>
+                            <span class="status-badge-lg badge-optimal" id="phm-mode-badge">PHM AI: ACTIVE</span>
                         </div>
-                        <div class="advisory-desc" id="advisory-desc">
-                            All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are &lt; 2.5%.
-                        </div>
-                        <div class="advisory-actions" id="advisory-action">
-                            RECOMMENDATION: Continue planned mission profile. No maintenance required.
-                        </div>
-                    </div>
 
-                    <!-- Subsystem Degradation & Physics Deviations -->
-                    <div class="diag-section-header">
-                        <span>Subsystem Physics Health & Integrity</span>
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-cyan);">Cross-Residual Validation</span>
-                    </div>
-                    <div class="diag-subsystems-list">
-                        <!-- Thermal -->
-                        <div class="diag-subsystem-item">
-                            <div class="diag-subsystem-header">
-                                <span class="diag-subsystem-name">🔥 Thermal Core & Cooling Jacket</span>
-                                <span class="diag-subsystem-val" id="diag-val-thermal">98% NOMINAL</span>
+                        <!-- AI Diagnostic & Action Advisory Card -->
+                        <div id="advisory-card" class="advisory-box">
+                            <div class="advisory-title" id="advisory-title">
+                                Propulsion Health: Nominal
                             </div>
-                            <div class="diag-progress-bar">
-                                <div class="diag-progress-fill" id="diag-prog-thermal" style="width: 98%;"></div>
+                            <div class="advisory-desc" id="advisory-desc">
+                                All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are &lt; 2.5%.
+                            </div>
+                            <div class="advisory-actions" id="advisory-action">
+                                RECOMMENDATION: Continue planned mission profile. No maintenance required.
                             </div>
                         </div>
 
-                        <!-- Fuel & Combustion -->
-                        <div class="diag-subsystem-item">
-                            <div class="diag-subsystem-header">
-                                <span class="diag-subsystem-name">⚙️ Fuel Rail & Combustion Balance</span>
-                                <span class="diag-subsystem-val" id="diag-val-fuel">97% NOMINAL</span>
+                        <!-- Subsystem Degradation & Physics Deviations -->
+                        <div class="diag-section-header">
+                            <span>Subsystem Physics Health & Integrity</span>
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-amber);">Cross-Residual Validation</span>
+                        </div>
+                        <div class="diag-subsystems-list">
+                            <!-- Thermal -->
+                            <div class="diag-subsystem-item">
+                                <div class="diag-subsystem-header">
+                                    <span class="diag-subsystem-name">Thermal Core & Cooling Jacket</span>
+                                    <span class="diag-subsystem-val" id="diag-val-thermal">98% NOMINAL</span>
+                                </div>
+                                <div class="diag-progress-bar">
+                                    <div class="diag-progress-fill" id="diag-prog-thermal" style="width: 98%;"></div>
+                                </div>
                             </div>
-                            <div class="diag-progress-bar">
-                                <div class="diag-progress-fill" id="diag-prog-fuel" style="width: 97%;"></div>
+
+                            <!-- Fuel & Combustion -->
+                            <div class="diag-subsystem-item">
+                                <div class="diag-subsystem-header">
+                                    <span class="diag-subsystem-name">Fuel Rail & Combustion Balance</span>
+                                    <span class="diag-subsystem-val" id="diag-val-fuel">97% NOMINAL</span>
+                                </div>
+                                <div class="diag-progress-bar">
+                                    <div class="diag-progress-fill" id="diag-prog-fuel" style="width: 97%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Lubrication -->
+                            <div class="diag-subsystem-item">
+                                <div class="diag-subsystem-header">
+                                    <span class="diag-subsystem-name">Lubrication Circuit & Sump</span>
+                                    <span class="diag-subsystem-val" id="diag-val-oil">99% NOMINAL</span>
+                                </div>
+                                <div class="diag-progress-bar">
+                                    <div class="diag-progress-fill" id="diag-prog-oil" style="width: 99%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Mechanical / Vibration -->
+                            <div class="diag-subsystem-item">
+                                <div class="diag-subsystem-header">
+                                    <span class="diag-subsystem-name">Mechanical Balance & Mounts</span>
+                                    <span class="diag-subsystem-val" id="diag-val-vib">96% NOMINAL</span>
+                                </div>
+                                <div class="diag-progress-bar">
+                                    <div class="diag-progress-fill" id="diag-prog-vib" style="width: 96%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Avionics & Sensor Channel Fusion -->
+                            <div class="diag-subsystem-item">
+                                <div class="diag-subsystem-header">
+                                    <span class="diag-subsystem-name">Avionics Sensor Channel Fusion</span>
+                                    <span class="diag-subsystem-val" id="diag-val-avionics">100% NOMINAL</span>
+                                </div>
+                                <div class="diag-progress-bar">
+                                    <div class="diag-progress-fill" id="diag-prog-avionics" style="width: 100%;"></div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Lubrication -->
-                        <div class="diag-subsystem-item">
-                            <div class="diag-subsystem-header">
-                                <span class="diag-subsystem-name">🛢️ Lubrication Circuit & Sump</span>
-                                <span class="diag-subsystem-val" id="diag-val-oil">99% NOMINAL</span>
+                        <!-- PHM Prognostics & Maintenance Matrix -->
+                        <div class="diag-section-header">
+                            <span>PHM Prognostic Matrix</span>
+                        </div>
+                        <div class="diag-phm-grid">
+                            <div class="diag-phm-card">
+                                <div class="diag-phm-label">Anomaly Confidence</div>
+                                <div class="diag-phm-val" id="diag-stat-conf">99.4%</div>
                             </div>
-                            <div class="diag-progress-bar">
-                                <div class="diag-progress-fill" id="diag-prog-oil" style="width: 99%;"></div>
+                            <div class="diag-phm-card">
+                                <div class="diag-phm-label">Physics Residual</div>
+                                <div class="diag-phm-val" id="diag-stat-residual">&lt; 2.1% RMS</div>
+                            </div>
+                            <div class="diag-phm-card">
+                                <div class="diag-phm-label">Maintenance Priority</div>
+                                <div class="diag-phm-val" id="diag-stat-priority" style="color: var(--accent-emerald);">ROUTINE</div>
+                            </div>
+                            <div class="diag-phm-card">
+                                <div class="diag-phm-label">Degradation Trend</div>
+                                <div class="diag-phm-val" id="diag-stat-trend" style="color: var(--accent-amber);">STABLE CRUISE</div>
                             </div>
                         </div>
 
-                        <!-- Mechanical / Vibration -->
-                        <div class="diag-subsystem-item">
-                            <div class="diag-subsystem-header">
-                                <span class="diag-subsystem-name">〰️ Mechanical Balance & Mounts</span>
-                                <span class="diag-subsystem-val" id="diag-val-vib">96% NOMINAL</span>
-                            </div>
-                            <div class="diag-progress-bar">
-                                <div class="diag-progress-fill" id="diag-prog-vib" style="width: 96%;"></div>
-                            </div>
+                        <!-- Live PHM Diagnostic Event Stream -->
+                        <div class="diag-log-container" id="diag-log-box">
+                            <span style="color: var(--accent-amber); font-weight: 700;">PHM LOG:</span>
+                            <span id="diag-log-text">Physics-informed digital twin estimation in progress...</span>
                         </div>
-
-                        <!-- Avionics & Sensor Channel Fusion -->
-                        <div class="diag-subsystem-item">
-                            <div class="diag-subsystem-header">
-                                <span class="diag-subsystem-name">📡 Avionics Sensor Channel Fusion</span>
-                                <span class="diag-subsystem-val" id="diag-val-avionics">100% NOMINAL</span>
-                            </div>
-                            <div class="diag-progress-bar">
-                                <div class="diag-progress-fill" id="diag-prog-avionics" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- PHM Prognostics & Maintenance Matrix -->
-                    <div class="diag-section-header">
-                        <span>PHM Prognostic Matrix</span>
-                    </div>
-                    <div class="diag-phm-grid">
-                        <div class="diag-phm-card">
-                            <div class="diag-phm-label">Anomaly Confidence</div>
-                            <div class="diag-phm-val" id="diag-stat-conf">99.4%</div>
-                        </div>
-                        <div class="diag-phm-card">
-                            <div class="diag-phm-label">Physics Residual</div>
-                            <div class="diag-phm-val" id="diag-stat-residual">&lt; 2.1% RMS</div>
-                        </div>
-                        <div class="diag-phm-card">
-                            <div class="diag-phm-label">Maintenance Priority</div>
-                            <div class="diag-phm-val" id="diag-stat-priority" style="color: var(--accent-emerald);">ROUTINE</div>
-                        </div>
-                        <div class="diag-phm-card">
-                            <div class="diag-phm-label">Degradation Trend</div>
-                            <div class="diag-phm-val" id="diag-stat-trend" style="color: var(--accent-cyan);">STABLE CRUISE</div>
-                        </div>
-                    </div>
-
-                    <!-- Live PHM Diagnostic Event Stream -->
-                    <div class="diag-log-container" id="diag-log-box">
-                        <span style="color: var(--accent-cyan); font-weight: 700;">PHM LOG:</span>
-                        <span id="diag-log-text">Physics-informed digital twin estimation in progress...</span>
                     </div>
                 </div>
             </div>
@@ -1384,8 +1484,8 @@ DASHBOARD_HTML = """
                         {
                             label: 'CHT (°C)',
                             data: dataCHT,
-                            borderColor: '#38bdf8',
-                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                            borderColor: '#C47A3C',
+                            backgroundColor: 'rgba(196, 122, 60, 0.1)',
                             tension: 0.3,
                             borderWidth: 2,
                             pointRadius: 0
@@ -1393,7 +1493,7 @@ DASHBOARD_HTML = """
                         {
                             label: 'EGT (°C)',
                             data: dataEGT,
-                            borderColor: '#ef4444',
+                            borderColor: '#B85C52',
                             backgroundColor: 'transparent',
                             tension: 0.3,
                             borderWidth: 2,
@@ -1402,7 +1502,7 @@ DASHBOARD_HTML = """
                         {
                             label: 'Oil Temp (°C)',
                             data: dataOilT,
-                            borderColor: '#f59e0b',
+                            borderColor: '#B88A45',
                             backgroundColor: 'transparent',
                             tension: 0.3,
                             borderWidth: 2,
@@ -1416,17 +1516,17 @@ DASHBOARD_HTML = """
                     animation: false,
                     plugins: {
                         legend: {
-                            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                            labels: { color: '#292722', font: { family: 'Inter', size: 11 } }
                         }
                     },
                     scales: {
                         x: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+                            grid: { color: 'rgba(70, 65, 55, 0.08)' },
+                            ticks: { color: '#69645B', font: { family: 'JetBrains Mono', size: 10 } }
                         },
                         y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+                            grid: { color: 'rgba(70, 65, 55, 0.08)' },
+                            ticks: { color: '#69645B', font: { family: 'JetBrains Mono', size: 10 } }
                         }
                     }
                 }
@@ -1441,8 +1541,8 @@ DASHBOARD_HTML = """
 
             ws.onopen = () => {
                 document.getElementById('conn-text').innerText = 'LIVE 1 Hz';
-                document.getElementById('conn-badge').style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                document.getElementById('conn-badge').style.color = '#10b981';
+                document.getElementById('conn-badge').style.borderColor = 'rgba(79, 128, 104, 0.25)';
+                document.getElementById('conn-badge').style.color = '#4F8068';
             };
 
             ws.onmessage = (event) => {
@@ -1452,8 +1552,8 @@ DASHBOARD_HTML = """
 
             ws.onclose = () => {
                 document.getElementById('conn-text').innerText = 'RECONNECTING...';
-                document.getElementById('conn-badge').style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                document.getElementById('conn-badge').style.color = '#ef4444';
+                document.getElementById('conn-badge').style.borderColor = 'rgba(184, 92, 82, 0.25)';
+                document.getElementById('conn-badge').style.color = '#B85C52';
                 setTimeout(connectWebSocket, 2000);
             };
         }
@@ -1505,23 +1605,23 @@ DASHBOARD_HTML = """
             rulEl.innerText = `${estRulHours} hrs`;
 
             if (health > 85) {
-                healthBar.style.stroke = '#10b981';
+                healthBar.style.stroke = '#4F8068';
                 healthBadge.className = 'status-badge-lg badge-optimal';
                 healthBadge.innerText = 'OPTIMAL';
                 stateEl.innerText = data.fault_label.toUpperCase();
-                stateEl.style.color = '#10b981';
+                stateEl.style.color = '#4F8068';
             } else if (health > 60) {
-                healthBar.style.stroke = '#f59e0b';
+                healthBar.style.stroke = '#B88A45';
                 healthBadge.className = 'status-badge-lg badge-warning';
                 healthBadge.innerText = 'DEGRADED';
                 stateEl.innerText = data.fault_label.toUpperCase();
-                stateEl.style.color = '#f59e0b';
+                stateEl.style.color = '#B88A45';
             } else {
-                healthBar.style.stroke = '#ef4444';
+                healthBar.style.stroke = '#B85C52';
                 healthBadge.className = 'status-badge-lg badge-critical';
                 healthBadge.innerText = 'CRITICAL';
                 stateEl.innerText = data.fault_label.toUpperCase();
-                stateEl.style.color = '#ef4444';
+                stateEl.style.color = '#B85C52';
             }
 
             // Update UAV Mini-Clone Model Highlighting & Hotspots
@@ -1574,19 +1674,19 @@ DASHBOARD_HTML = """
             [elAvionics, elRadiator, elEngine, elCyl1, elCyl2, elCyl3, elCyl4, elOil].forEach(el => {
                 if (el) el.className.baseVal = 'part-nominal';
             });
-            if (elFuel) elFuel.setAttribute('stroke', '#38bdf8');
-            if (elExhaust) elExhaust.setAttribute('stroke', '#ef4444');
-            if (elProp) elProp.setAttribute('fill', '#38bdf8');
+            if (elFuel) elFuel.setAttribute('stroke', '#C47A3C');
+            if (elExhaust) elExhaust.setAttribute('stroke', '#B85C52');
+            if (elProp) elProp.setAttribute('fill', '#C47A3C');
             [1, 2, 3, 4].forEach(i => {
                 const m = document.getElementById(`svg-mount-${i}`);
-                if (m) m.setAttribute('fill', '#64748b');
+                if (m) m.setAttribute('fill', '#918B80');
             });
 
             if (scenario === 'Normal' || health > 90) {
                 elReticle.style.display = 'none';
-                dotEl.style.color = '#10b981';
+                dotEl.style.color = '#4F8068';
                 titleEl.innerText = 'ALL PROPULSION SUBSYSTEMS NOMINAL';
-                titleEl.style.color = '#10b981';
+                titleEl.style.color = '#4F8068';
                 partEl.innerText = 'PIN: PROPULSION BAY [OK]';
             } 
             else if (scenario === 'Overheating') {
@@ -1599,20 +1699,20 @@ DASHBOARD_HTML = """
                 if (elCyl4) elCyl4.className.baseVal = 'part-thermal';
                 
                 positionReticle(280, 135);
-                dotEl.style.color = '#ef4444';
+                dotEl.style.color = '#B85C52';
                 titleEl.innerText = `THERMAL ANOMALY: CHT ${data.cht_c.toFixed(1)}°C / OIL ${data.oil_temperature_c.toFixed(1)}°C`;
-                titleEl.style.color = '#ff5722';
+                titleEl.style.color = '#C47A3C';
                 partEl.innerText = 'HOTSPOT: CYLINDER HEADS & COOLING RADIATOR';
             } 
             else if (scenario === 'Injector_Degradation') {
                 // Highlight Fuel Delivery Rail & Injector Nozzles
-                if (elFuel) elFuel.setAttribute('stroke', '#f59e0b');
+                if (elFuel) elFuel.setAttribute('stroke', '#B88A45');
                 if (elEngine) elEngine.className.baseVal = 'part-warning';
                 
                 positionReticle(305, 130);
-                dotEl.style.color = '#f59e0b';
+                dotEl.style.color = '#B88A45';
                 titleEl.innerText = `COMBUSTION DEGRADATION: FUEL FLOW ${data.fuel_flow_lh.toFixed(1)} L/H`;
-                titleEl.style.color = '#f59e0b';
+                titleEl.style.color = '#B88A45';
                 partEl.innerText = 'HOTSPOT: HIGH-PRESSURE FUEL INJECTION RAIL';
             } 
             else if (scenario === 'Lubrication') {
@@ -1621,24 +1721,24 @@ DASHBOARD_HTML = """
                 if (elEngine) elEngine.className.baseVal = 'part-warning';
                 
                 positionReticle(373, 135);
-                dotEl.style.color = '#ef4444';
+                dotEl.style.color = '#B85C52';
                 titleEl.innerText = `HYDRAULIC ANOMALY: OIL PRESSURE CRITICAL (${data.oil_pressure_bar.toFixed(2)} BAR)`;
-                titleEl.style.color = '#ef4444';
+                titleEl.style.color = '#B85C52';
                 partEl.innerText = 'HOTSPOT: LUBRICATION SUMP & OIL SCAVENGE PUMP';
             } 
             else if (scenario === 'Vibration_Fault') {
                 // Highlight Engine Mounts, Crankcase & Propeller Shaft
-                if (elProp) elProp.setAttribute('fill', '#f59e0b');
+                if (elProp) elProp.setAttribute('fill', '#B88A45');
                 if (elEngine) elEngine.className.baseVal = 'part-warning';
                 [1, 2, 3, 4].forEach(i => {
                     const m = document.getElementById(`svg-mount-${i}`);
-                    if (m) m.setAttribute('fill', '#ef4444');
+                    if (m) m.setAttribute('fill', '#B85C52');
                 });
 
                 positionReticle(350, 135);
-                dotEl.style.color = '#f59e0b';
+                dotEl.style.color = '#B88A45';
                 titleEl.innerText = `MECHANICAL ANOMALY: VIBRATION SPIKE (${data.vibration_g.toFixed(3)} g RMS)`;
-                titleEl.style.color = '#f59e0b';
+                titleEl.style.color = '#B88A45';
                 partEl.innerText = 'HOTSPOT: CRANKSHAFT & DYNAFOCAL ENGINE MOUNTS';
             } 
             else if (scenario === 'Sensor_Drift') {
@@ -1646,21 +1746,21 @@ DASHBOARD_HTML = """
                 if (elAvionics) elAvionics.className.baseVal = 'part-warning';
                 
                 positionReticle(85, 135);
-                dotEl.style.color = '#f59e0b';
+                dotEl.style.color = '#B88A45';
                 titleEl.innerText = `AVIONICS HARNESS: CHT SENSOR DRIFT DETECTED (${data.cht_c.toFixed(1)}°C)`;
-                titleEl.style.color = '#38bdf8';
+                titleEl.style.color = '#C47A3C';
                 partEl.innerText = 'HOTSPOT: NOSE AVIONICS & CHT SENSOR HARNESS';
             } 
             else if (scenario === 'Misfire') {
                 // Highlight Cylinder 1 & Exhaust Header
                 if (elCyl1) elCyl1.className.baseVal = 'part-critical';
                 if (elCyl3) elCyl3.className.baseVal = 'part-warning';
-                if (elExhaust) elExhaust.setAttribute('stroke', '#ff3d00');
+                if (elExhaust) elExhaust.setAttribute('stroke', '#B85C52');
                 
                 positionReticle(310, 120);
-                dotEl.style.color = '#ef4444';
+                dotEl.style.color = '#B85C52';
                 titleEl.innerText = `IGNITION FAULT: INTERMITTENT CYLINDER MISFIRE`;
-                titleEl.style.color = '#ef4444';
+                titleEl.style.color = '#B85C52';
                 partEl.innerText = 'HOTSPOT: CYLINDER #1 SPARK & EXHAUST RUNNER';
             }
         }
@@ -1702,7 +1802,7 @@ DASHBOARD_HTML = """
         // Tooltip handler
         function showTooltip(title, desc) {
             const tip = document.getElementById('uav-tooltip');
-            tip.innerHTML = `<span style="color: var(--accent-cyan); font-weight:700;">${title}</span><br><span style="color: #94a3b8; font-size: 0.65rem;">${desc}</span>`;
+            tip.innerHTML = `<span style="color: var(--accent-amber); font-weight:700;">${title}</span><br><span style="color: #918B80; font-size: 0.65rem;">${desc}</span>`;
             tip.style.display = 'block';
         }
 
@@ -1756,23 +1856,23 @@ DASHBOARD_HTML = """
 
             if (data.fault_label === 'Normal') {
                 card.className = 'advisory-box';
-                title.innerText = '🛡️ Propulsion Health: Nominal';
+                title.innerText = 'Propulsion Health: Nominal';
                 desc.innerText = 'All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are < 2.5%.';
                 action.innerText = 'RECOMMENDATION: Continue planned mission profile. No maintenance required.';
                 if (badge) { badge.className = 'status-badge-lg badge-optimal'; badge.innerText = 'PHM AI: OPTIMAL'; }
                 if (statConf) statConf.innerText = '99.4%';
                 if (statResidual) statResidual.innerText = '< 2.1% RMS';
                 if (statPriority) { statPriority.innerText = 'ROUTINE'; statPriority.style.color = 'var(--accent-emerald)'; }
-                if (statTrend) { statTrend.innerText = 'STABLE CRUISE'; statTrend.style.color = 'var(--accent-cyan)'; }
+                if (statTrend) { statTrend.innerText = 'STABLE CRUISE'; statTrend.style.color = 'var(--accent-amber)'; }
                 if (logText) logText.innerText = 'PHYSICS ENGINE: Telemetry parity matched across 9 sensor channels with zero divergence.';
             } else if (data.fault_label === 'Overheating') {
                 card.className = 'advisory-box critical';
-                title.innerText = '🔥 Alert: Engine Overheating Trend Detected';
+                title.innerText = 'ALERT: Engine Overheating Trend Detected';
                 desc.innerText = `CHT reached ${data.cht_c.toFixed(1)}°C and Oil Temp reached ${data.oil_temperature_c.toFixed(1)}°C. Physics residual exceeds +35°C thermal model boundary.`;
                 action.innerText = 'ACTION: Reduce cruise throttle to 55%. Plan altitude descent for enhanced ram-air cooling. Inspect radiator fins post-flight.';
                 if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'PHM AI: CRITICAL ALERT'; }
                 setSubsystem(valThermal, progThermal, 28, '28% CRITICAL HEAT', 'var(--accent-rose)');
-                setSubsystem(valOil, progOil, 54, '54% HIGH TEMP', 'var(--accent-amber)');
+                setSubsystem(valOil, progOil, 54, '54% HIGH TEMP', 'var(--accent-warn)');
                 if (statConf) statConf.innerText = '98.9%';
                 if (statResidual) statResidual.innerText = '+38.4°C CHT DIV';
                 if (statPriority) { statPriority.innerText = 'URGENT (P1)'; statPriority.style.color = 'var(--accent-rose)'; }
@@ -1780,24 +1880,24 @@ DASHBOARD_HTML = """
                 if (logText) logText.innerText = `THERMAL ANOMALY: Cylinder jacket heat transfer deficit detected (${data.cht_c.toFixed(1)}°C).`;
             } else if (data.fault_label === 'Injector_Degradation') {
                 card.className = 'advisory-box warning';
-                title.innerText = '⚙️ Warning: Fuel Injector Delivery Degradation';
+                title.innerText = 'WARNING: Fuel Injector Delivery Degradation';
                 desc.innerText = `Fuel flow elevated (${data.fuel_flow_lh.toFixed(1)} L/h) with abnormal EGT and RPM fluctuations. Flow coefficient dropped 18%.`;
                 action.innerText = 'ACTION: Monitor fuel consumption vs endurance margin. Schedule injector ultrasonic cleaning at next turnaround.';
                 if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'PHM AI: DEGRADED'; }
-                setSubsystem(valFuel, progFuel, 42, '42% FLOW DEVIATION', 'var(--accent-amber)');
+                setSubsystem(valFuel, progFuel, 42, '42% FLOW DEVIATION', 'var(--accent-warn)');
                 if (statConf) statConf.innerText = '96.8%';
                 if (statResidual) statResidual.innerText = '+4.6 L/H BIAS';
-                if (statPriority) { statPriority.innerText = 'ACTION REQ'; statPriority.style.color = 'var(--accent-amber)'; }
-                if (statTrend) { statTrend.innerText = 'COMBUSTION IMBALANCE'; statTrend.style.color = 'var(--accent-amber)'; }
+                if (statPriority) { statPriority.innerText = 'ACTION REQ'; statPriority.style.color = 'var(--accent-warn)'; }
+                if (statTrend) { statTrend.innerText = 'COMBUSTION IMBALANCE'; statTrend.style.color = 'var(--accent-warn)'; }
                 if (logText) logText.innerText = `COMBUSTION DIAGNOSTIC: Fuel mass flow residual divergence on rail (+${(data.fuel_flow_lh - 18.5).toFixed(1)} L/h).`;
             } else if (data.fault_label === 'Lubrication') {
                 card.className = 'advisory-box critical';
-                title.innerText = '🛢️ Urgent: Lubrication Starvation & Pressure Loss';
+                title.innerText = 'URGENT: Lubrication Starvation & Pressure Loss';
                 desc.innerText = `Oil pressure dropped to ${data.oil_pressure_bar.toFixed(2)} bar while friction vibration is climbing (${data.vibration_g.toFixed(3)} g).`;
                 action.innerText = 'CRITICAL ADVISORY: Potential bearing wear/pump cavitation. Abort mission if pressure drops below 3.0 bar. Divert to nearest recovery base.';
                 if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'PHM AI: HYDRAULIC ALARM'; }
                 setSubsystem(valOil, progOil, 18, '18% STARVATION', 'var(--accent-rose)');
-                setSubsystem(valVib, progVib, 58, '58% FRICTION RISE', 'var(--accent-amber)');
+                setSubsystem(valVib, progVib, 58, '58% FRICTION RISE', 'var(--accent-warn)');
                 if (statConf) statConf.innerText = '99.5%';
                 if (statResidual) statResidual.innerText = '-1.85 BAR DEFICIT';
                 if (statPriority) { statPriority.innerText = 'EMERGENCY'; statPriority.style.color = 'var(--accent-rose)'; }
@@ -1805,36 +1905,36 @@ DASHBOARD_HTML = """
                 if (logText) logText.innerText = `HYDRAULIC FAILURE: Main gallery oil pressure collapsed below 3.5 bar margin.`;
             } else if (data.fault_label === 'Vibration_Fault') {
                 card.className = 'advisory-box warning';
-                title.innerText = '〰️ Mechanical Anomaly: High Vibration Signature';
+                title.innerText = 'MECHANICAL ANOMALY: High Vibration Signature';
                 desc.innerText = `Spectral energy spikes detected in 1X-2X crankshaft harmonics (${data.vibration_g.toFixed(3)} g RMS). Probable propeller imbalance or mount looseness.`;
                 action.innerText = 'ACTION: Avoid resonant RPM bands. Restrict maximum continuous power. Perform mechanical mount inspection.';
                 if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'PHM AI: VIBRATION SPIKE'; }
                 setSubsystem(valVib, progVib, 25, '25% HARMONIC SPIKE', 'var(--accent-rose)');
                 if (statConf) statConf.innerText = '97.6%';
                 if (statResidual) statResidual.innerText = `+${(data.vibration_g - 0.2).toFixed(3)}g RMS`;
-                if (statPriority) { statPriority.innerText = 'INSPECTION'; statPriority.style.color = 'var(--accent-amber)'; }
-                if (statTrend) { statTrend.innerText = 'DYNAMIC UNBALANCE'; statTrend.style.color = 'var(--accent-amber)'; }
+                if (statPriority) { statPriority.innerText = 'INSPECTION'; statPriority.style.color = 'var(--accent-warn)'; }
+                if (statTrend) { statTrend.innerText = 'DYNAMIC UNBALANCE'; statTrend.style.color = 'var(--accent-warn)'; }
                 if (logText) logText.innerText = `ROTORDYNAMICS: 1X crankshaft fundamental frequency vibration spike detected.`;
             } else if (data.fault_label === 'Sensor_Drift') {
                 card.className = 'advisory-box warning';
-                title.innerText = '📡 Avionics Alert: CHT Sensor Drift / Calibration Error';
+                title.innerText = 'AVIONICS ALERT: CHT Sensor Drift / Calibration Error';
                 desc.innerText = `CHT reading (${data.cht_c.toFixed(1)}°C) diverges from physics-informed estimation, while EGT & Oil Temp remain normal. Engine is healthy.`;
                 action.innerText = 'INTELLIGENT DIAGNOSIS: Sensor failure detected via cross-sensor fusion. Engine safe to operate. Replace CHT probe on return.';
                 if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'PHM AI: SENSOR FAULT'; }
-                setSubsystem(valAvionics, progAvionics, 35, '35% SENSOR BIAS', 'var(--accent-amber)');
+                setSubsystem(valAvionics, progAvionics, 35, '35% SENSOR BIAS', 'var(--accent-warn)');
                 if (statConf) statConf.innerText = '99.8%';
                 if (statResidual) statResidual.innerText = `+${(data.cht_c - 150).toFixed(1)}°C DRIFT`;
-                if (statPriority) { statPriority.innerText = 'POST-FLIGHT'; statPriority.style.color = 'var(--accent-cyan)'; }
-                if (statTrend) { statTrend.innerText = 'SENSOR BIAS ONLY'; statTrend.style.color = 'var(--accent-cyan)'; }
+                if (statPriority) { statPriority.innerText = 'POST-FLIGHT'; statPriority.style.color = 'var(--accent-amber)'; }
+                if (statTrend) { statTrend.innerText = 'SENSOR BIAS ONLY'; statTrend.style.color = 'var(--accent-amber)'; }
                 if (logText) logText.innerText = `ANOMALY ISOLATION: Digital Twin neural estimator verified mechanical engine core is 100% healthy.`;
             } else if (data.fault_label === 'Misfire') {
                 card.className = 'advisory-box critical';
-                title.innerText = '💥 Combustion Instability: Intermittent Cylinder Misfire';
+                title.innerText = 'COMBUSTION INSTABILITY: Intermittent Cylinder Misfire';
                 desc.innerText = `Combustion irregularity detected with sudden RPM drops and unburnt exhaust gas temperature dips.`;
                 action.innerText = 'ACTION: Check ignition coil & spark plug telemetry. Adjust mixture trim. If misfires persist, abort climb.';
                 if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'PHM AI: MISFIRE FAULT'; }
                 setSubsystem(valFuel, progFuel, 22, '22% MISFIRE UNSTABLE', 'var(--accent-rose)');
-                setSubsystem(valVib, progVib, 45, '45% COMBUSTION ROUGH', 'var(--accent-amber)');
+                setSubsystem(valVib, progVib, 45, '45% COMBUSTION ROUGH', 'var(--accent-warn)');
                 if (statConf) statConf.innerText = '98.5%';
                 if (statResidual) statResidual.innerText = 'ΔRPM -280 / ΔEGT -50°';
                 if (statPriority) { statPriority.innerText = 'URGENT'; statPriority.style.color = 'var(--accent-rose)'; }
