@@ -1,11 +1,69 @@
 import asyncio
 import json
 import numpy as np
+import pandas as pd
+import joblib
+import tensorflow as tf
 from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
+import io
+import base64
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+from src.predictive_maintenance import AeroTwinAnomalyDetector
+from src.sensor_diagnosis import SensorDiagnosisEngine
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Initialize Supabase Client
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+supabase_client = None
+if supabase_url and supabase_key:
+    supabase_client = create_client(supabase_url, supabase_key)
+    print("Successfully connected to Supabase for backend logging.")
+else:
+    print("Warning: Missing Supabase credentials in .env. Anomalies will not be logged to DB.")
+
+# Useful sensors expected by the LSTM model
+useful_sensors = ['sensor_2', 'sensor_3', 'sensor_4', 'sensor_6', 'sensor_7', 'sensor_8', 'sensor_9', 'sensor_11', 'sensor_12', 'sensor_13', 'sensor_14', 'sensor_15', 'sensor_17', 'sensor_20', 'sensor_21']
+
+# Load LSTM Model and Scaler at startup
+rul_scaler = None
+rul_model = None
+test_df = None
+rul_ground_truth = []
+
+try:
+    scaler_path = "models/rul_scaler.pkl"
+    model_path = "models/rul_lstm.keras"
+    test_path = "data/HPC_Degradation/test_FD001.txt"
+    truth_path = "data/HPC_Degradation/RUL_FD001.txt"
+    
+    if os.path.exists(scaler_path):
+        rul_scaler = joblib.load(scaler_path)
+        print("Successfully loaded RUL scaler.")
+    if os.path.exists(model_path):
+        rul_model = tf.keras.models.load_model(model_path)
+        print("Successfully loaded RUL LSTM model.")
+    if os.path.exists(test_path):
+        test_df = pd.read_csv(test_path, sep=r'\s+', header=None)
+        test_df.columns = ["unit", "cycle", "setting1", "setting2", "setting3"] + [f"sensor_{i}" for i in range(1, 22)]
+        print("Successfully loaded CMAPSS test data.")
+    if os.path.exists(truth_path):
+        rul_ground_truth = pd.read_csv(truth_path, sep=r'\s+', header=None).iloc[:, 0].tolist()
+        print("Successfully loaded CMAPSS ground truth RUL values.")
+except Exception as e:
+    print(f"Error loading models/datasets at startup: {e}")
 
 app = FastAPI(title="MALE UAV Digital Twin Telemetry Server")
 
@@ -29,21 +87,23 @@ DASHBOARD_HTML = """
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --bg-base: #F3F0E9;
-            --bg-surface: #E8E4DA;
-            --bg-glass: rgba(255, 252, 245, 0.60);
-            --border-glass: rgba(70, 65, 55, 0.10);
-            --border-subtle: rgba(70, 65, 55, 0.07);
-            --accent-amber: #C47A3C;
-            --accent-blue: #4A607A;
-            --accent-emerald: #4F8068;
-            --accent-warn: #B88A45;
-            --accent-rose: #B85C52;
-            --text-primary: #292722;
-            --text-secondary: #69645B;
-            --text-muted: #918B80;
+            --bg-base: #070b14;
+            --bg-surface: #0e1526;
+            --bg-card: rgba(18, 28, 48, 0.75);
+            --border-glow: rgba(56, 189, 248, 0.2);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --accent-cyan: #38bdf8;
+            --accent-blue: #2563eb;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #ef4444;
+            --accent-purple: #a855f7;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
         }
 
         * {
@@ -55,25 +115,32 @@ DASHBOARD_HTML = """
         body {
             background-color: var(--bg-base);
             background-image: 
-                radial-gradient(at 15% 15%, rgba(220, 212, 198, 0.35) 0px, transparent 50%),
-                radial-gradient(at 85% 85%, rgba(210, 202, 188, 0.40) 0px, transparent 50%),
-                linear-gradient(rgba(70, 65, 55, 0.045) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(70, 65, 55, 0.045) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
-            background-attachment: fixed;
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+                linear-gradient(to bottom, rgba(7, 11, 20, 0.95), rgba(7, 11, 20, 0.98));
             color: var(--text-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
         }
 
+        /* Scanline Overlay for Aerospace HMI feel */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.35;
+        }
+
         header {
-            background: rgba(243, 240, 233, 0.85);
-            backdrop-filter: blur(20px) saturate(110%);
-            -webkit-backdrop-filter: blur(20px) saturate(110%);
-            border-bottom: 1px solid var(--border-glass);
+            background: rgba(14, 21, 38, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
             padding: 0.85rem 1.75rem;
             display: flex;
             justify-content: space-between;
@@ -90,31 +157,30 @@ DASHBOARD_HTML = """
         }
 
         .logo-badge {
-            background: rgba(41, 39, 34, 0.90);
-            border: 1px solid rgba(70, 65, 55, 0.15);
-            padding: 0.35rem 0.75rem;
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            padding: 0.4rem 0.75rem;
             border-radius: 6px;
             font-family: 'Chakra Petch', sans-serif;
             font-weight: 700;
-            font-size: 1.05rem;
+            font-size: 1.1rem;
             letter-spacing: 1.5px;
-            color: #F3F0E9;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
         }
 
         .brand-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 1.3rem;
-            font-weight: 750;
+            font-size: 1.25rem;
+            font-weight: 600;
             letter-spacing: 0.5px;
-            color: #1E2022;
+            color: #ffffff;
         }
 
         .brand-subtitle {
             font-size: 0.75rem;
-            color: var(--accent-amber);
+            color: var(--accent-cyan);
             letter-spacing: 1px;
             text-transform: uppercase;
-            font-weight: 600;
         }
 
         .mission-status-bar {
@@ -129,12 +195,12 @@ DASHBOARD_HTML = """
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            background: rgba(79, 128, 104, 0.10);
+            background: rgba(16, 185, 129, 0.1);
             color: var(--accent-emerald);
-            border: 1px solid rgba(79, 128, 104, 0.25);
+            border: 1px solid rgba(16, 185, 129, 0.3);
             padding: 0.35rem 0.8rem;
             border-radius: 999px;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .status-dot {
@@ -142,6 +208,7 @@ DASHBOARD_HTML = """
             height: 8px;
             background: currentColor;
             border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
             animation: pulse 1.5s infinite;
         }
 
@@ -151,34 +218,35 @@ DASHBOARD_HTML = """
         }
 
         .metric-tag {
-            color: #69645B;
-            font-weight: 500;
+            color: var(--text-muted);
         }
         .metric-val {
-            color: #1E2022;
-            font-weight: 700;
+            color: var(--text-primary);
+            font-weight: 600;
         }
 
         main {
-            padding: 1.25rem 1.75rem 2rem 1.75rem;
+            padding: 1.25rem 1.75rem;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 1.25rem;
             flex: 1;
-            max-width: 1600px;
-            margin: 0 auto;
-            width: 100%;
+        }
+
+        .top-deck {
+            display: grid;
+            grid-template-columns: 310px 1fr 310px;
+            gap: 1.25rem;
         }
 
         .panel {
-            background: var(--bg-glass);
-            backdrop-filter: blur(20px) saturate(110%);
-            -webkit-backdrop-filter: blur(20px) saturate(110%);
-            border: 1px solid var(--border-glass);
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glow);
             border-radius: 12px;
             padding: 1.15rem;
             position: relative;
-            box-shadow: 0 10px 30px rgba(50, 45, 35, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             display: flex;
             flex-direction: column;
         }
@@ -194,194 +262,112 @@ DASHBOARD_HTML = """
 
         .panel-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.96rem;
-            font-weight: 750;
+            font-size: 0.92rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #1E2022;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
-        /* ==================================================== */
-        /* 1. TOP — ENGINE HEALTH / STATUS HERO DECK            */
-        /* ==================================================== */
-        .top-status-deck {
-            width: 100%;
+        /* Health Meter Widget */
+        .health-display {
             display: flex;
-            justify-content: center;
-        }
-
-        .status-hero-card {
-            background: var(--bg-glass);
-            backdrop-filter: blur(20px) saturate(110%);
-            -webkit-backdrop-filter: blur(20px) saturate(110%);
-            border: 1px solid var(--border-glass);
-            border-radius: 12px;
-            padding: 1.5rem 1.75rem;
-            box-shadow: 0 10px 30px rgba(50, 45, 35, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-            display: flex;
-            align-items: center;
-            align-content: center;
-            justify-content: center;
-            gap: 2rem;
-            flex-wrap: wrap;
-            box-sizing: border-box;
-            width: 100%;
-        }
-
-        .status-hero-left {
-            display: flex;
-            align-items: center;
-            align-content: center;
-            justify-content: center;
-            gap: 2.25rem;
-            flex-wrap: wrap;
-            margin: 0 auto;
-            padding: 0;
-            max-width: 100%;
-        }
-
-        .health-display-hero {
-            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin: 0;
-            padding: 0;
-            flex-shrink: 0;
+            padding: 0.25rem 0;
         }
 
         .health-circle-wrapper {
             position: relative;
-            width: 140px;
-            height: 140px;
+            width: 155px;
+            height: 155px;
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
-            margin: 0;
-            padding: 0;
         }
 
         .health-circle-svg {
             transform: rotate(-90deg);
             width: 100%;
             height: 100%;
-            display: block;
         }
 
         .health-circle-bg {
             fill: none;
-            stroke: rgba(70, 65, 55, 0.08);
-            stroke-width: 10;
+            stroke: rgba(255, 255, 255, 0.06);
+            stroke-width: 12;
         }
 
         .health-circle-bar {
             fill: none;
             stroke: var(--accent-emerald);
-            stroke-width: 10;
+            stroke-width: 12;
             stroke-linecap: round;
             stroke-dasharray: 440;
             stroke-dashoffset: 44;
             transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease;
+            filter: drop-shadow(0 0 8px currentColor);
         }
 
         .health-inner-text {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 0;
         }
 
         .health-number {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 2.4rem;
-            font-weight: 750;
+            font-size: 2.5rem;
+            font-weight: 700;
             line-height: 1;
-            color: #1E2022;
+            color: var(--text-primary);
         }
 
         .health-unit {
-            font-size: 0.65rem;
-            color: #69645B;
+            font-size: 0.7rem;
+            color: var(--text-muted);
             letter-spacing: 1px;
             margin-top: 4px;
-            font-weight: 500;
         }
 
-        .status-hero-meta {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 0.85rem;
-            margin: 0;
-            padding: 0;
+        .health-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+            width: 100%;
+            margin-top: 0.85rem;
         }
 
-        .status-badge-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin: 0;
-            padding: 0;
-        }
-
-        .status-stats-row {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-            flex-wrap: wrap;
-            margin: 0;
-            padding: 0;
-        }
-
-        .hero-stat-box {
-            background: rgba(255, 255, 255, 0.55);
-            padding: 0.65rem 1.15rem;
+        .meta-stat {
+            background: rgba(14, 21, 38, 0.6);
+            padding: 0.5rem 0.65rem;
             border-radius: 8px;
             border: 1px solid var(--border-subtle);
-            min-width: 150px;
+            text-align: center;
         }
 
         .meta-label {
             font-size: 0.68rem;
-            color: #5C574E;
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-weight: 600;
         }
 
         .meta-val {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1.05rem;
+            font-size: 0.98rem;
             font-weight: 700;
             margin-top: 2px;
-            color: var(--accent-amber);
-        }
-
-        .meta-val.hero-val {
-            font-size: 1.35rem;
+            color: var(--accent-cyan);
         }
 
         /* ==================================================== */
-        /* 2. CENTER — DIGITAL TWIN MAIN CENTERPIECE            */
+        /* MALE UAV DIGITAL TWIN MINI-CLONE SCHEMATIC (CENTER)  */
         /* ==================================================== */
-        .center-twin-deck {
-            width: 100%;
-        }
-
-        .hero-twin-card {
-            min-height: 460px;
-        }
-
         .uav-twin-panel {
             overflow: hidden;
             display: flex;
@@ -395,12 +381,11 @@ DASHBOARD_HTML = """
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(235, 230, 220, 0.50);
+            background: radial-gradient(circle at center, rgba(14, 28, 56, 0.4) 0%, rgba(7, 11, 20, 0.8) 100%);
             border-radius: 8px;
-            border: 1px solid rgba(70, 65, 55, 0.08);
-            min-height: 380px;
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            min-height: 250px;
             overflow: hidden;
-            padding: 1rem;
         }
 
         /* Tactical HUD Grid and Reticle */
@@ -409,8 +394,8 @@ DASHBOARD_HTML = """
             top: 0; left: 0; width: 100%; height: 100%;
             background-size: 24px 24px;
             background-image: 
-                linear-gradient(to right, rgba(70, 65, 55, 0.03) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(70, 65, 55, 0.03) 1px, transparent 1px);
+                linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
             pointer-events: none;
         }
 
@@ -418,10 +403,10 @@ DASHBOARD_HTML = """
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 380px;
-            height: 380px;
+            width: 320px;
+            height: 320px;
             transform: translate(-50%, -50%);
-            border: 1px dashed rgba(70, 65, 55, 0.10);
+            border: 1px dashed rgba(56, 189, 248, 0.1);
             border-radius: 50%;
             pointer-events: none;
         }
@@ -431,48 +416,33 @@ DASHBOARD_HTML = """
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 220px;
-            height: 220px;
+            width: 180px;
+            height: 180px;
             transform: translate(-50%, -50%);
-            border: 1px solid rgba(70, 65, 55, 0.06);
+            border: 1px solid rgba(56, 189, 248, 0.08);
             border-radius: 50%;
         }
 
         .uav-svg-model {
             width: 100%;
-            max-height: 330px;
+            max-height: 255px;
             z-index: 10;
+            filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.15));
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* ==================================================== */
-        /* 3. BOTTOM — EXISTING DATA DECK                       */
-        /* ==================================================== */
-        .bottom-data-deck {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            width: 100%;
-        }
-
-        .fault-matrix-panel .scenarios-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 0.6rem;
-        }
-
-        /* SVG Dynamic Styling for Subsystems (Warm Graphite & Sage Green CAD Palette) */
+        /* SVG Dynamic Styling for Subsystems */
         .uav-hull {
-            fill: url(#fuselageGrad);
-            stroke: #6B655A;
+            fill: #0c162c;
+            stroke: #38bdf8;
             stroke-width: 1.5;
             transition: all 0.3s ease;
         }
 
         .uav-wing-structure {
-            fill: url(#wingGrad);
-            stroke: #6B655A;
-            stroke-width: 1.5;
+            fill: #091122;
+            stroke: rgba(56, 189, 248, 0.4);
+            stroke-width: 1.2;
         }
 
         .uav-subsystem {
@@ -481,53 +451,56 @@ DASHBOARD_HTML = """
         }
 
         .uav-subsystem:hover {
-            opacity: 0.90;
+            filter: drop-shadow(0 0 8px #38bdf8);
         }
 
-        /* Normal State */
+        /* Normal Glowing State */
         .part-nominal {
-            fill: rgba(79, 128, 104, 0.28);
-            stroke: #4F8068;
+            fill: rgba(16, 185, 129, 0.15);
+            stroke: #10b981;
             stroke-width: 1.5;
         }
 
         /* Warning State */
         .part-warning {
-            fill: rgba(184, 138, 69, 0.35) !important;
-            stroke: #B88A45 !important;
-            stroke-width: 1.8 !important;
-            animation: pulse-warn 1.5s infinite alternate;
+            fill: rgba(245, 158, 11, 0.35) !important;
+            stroke: #f59e0b !important;
+            stroke-width: 2 !important;
+            filter: drop-shadow(0 0 10px #f59e0b) !important;
+            animation: pulse-warn 1.2s infinite alternate;
         }
 
         /* Critical / Anomaly State */
         .part-critical {
-            fill: rgba(184, 92, 82, 0.40) !important;
-            stroke: #B85C52 !important;
-            stroke-width: 2.2 !important;
-            animation: pulse-crit 1.0s infinite alternate;
+            fill: rgba(239, 68, 68, 0.45) !important;
+            stroke: #ef4444 !important;
+            stroke-width: 2.5 !important;
+            filter: drop-shadow(0 0 15px #ef4444) !important;
+            animation: pulse-crit 0.8s infinite alternate;
         }
 
         /* Thermal Wave Glow for Overheating */
         .part-thermal {
-            fill: rgba(196, 122, 60, 0.40) !important;
-            stroke: #C47A3C !important;
-            stroke-width: 2.2 !important;
-            animation: pulse-thermal 0.9s infinite alternate;
+            fill: rgba(255, 87, 34, 0.45) !important;
+            stroke: #ff5722 !important;
+            stroke-width: 2.5 !important;
+            filter: drop-shadow(0 0 16px #ff5722) !important;
+            animation: pulse-thermal 0.7s infinite alternate;
         }
 
         @keyframes pulse-warn {
-            0% { opacity: 0.75; }
-            100% { opacity: 1; }
+            0% { opacity: 0.6; }
+            100% { opacity: 1; filter: drop-shadow(0 0 14px #f59e0b); }
         }
 
         @keyframes pulse-crit {
-            0% { opacity: 0.65; transform: scale(0.99); }
-            100% { opacity: 1; transform: scale(1.01); }
+            0% { opacity: 0.5; transform: scale(0.98); }
+            100% { opacity: 1; transform: scale(1.02); filter: drop-shadow(0 0 18px #ef4444); }
         }
 
         @keyframes pulse-thermal {
-            0% { opacity: 0.75; fill: rgba(184, 92, 82, 0.35); }
-            100% { opacity: 1; fill: rgba(196, 122, 60, 0.50); }
+            0% { opacity: 0.6; fill: rgba(239, 68, 68, 0.3); }
+            100% { opacity: 1; fill: rgba(255, 111, 0, 0.6); filter: drop-shadow(0 0 20px #ff3d00); }
         }
 
         /* Spinning Propeller Animation */
@@ -547,15 +520,15 @@ DASHBOARD_HTML = """
             bottom: 8px;
             left: 10px;
             right: 10px;
-            background: rgba(255, 252, 245, 0.90);
-            border: 1px solid var(--border-glass);
+            background: rgba(14, 21, 38, 0.88);
+            border: 1px solid var(--border-subtle);
             border-radius: 6px;
             padding: 0.4rem 0.75rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 0.75rem;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(8px);
             z-index: 20;
         }
 
@@ -573,8 +546,8 @@ DASHBOARD_HTML = """
         }
 
         .uav-btn-mini {
-            background: rgba(255, 255, 255, 0.50);
-            border: 1px solid rgba(70, 65, 55, 0.10);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-subtle);
             color: var(--text-secondary);
             padding: 0.2rem 0.5rem;
             border-radius: 4px;
@@ -585,9 +558,9 @@ DASHBOARD_HTML = """
         }
 
         .uav-btn-mini:hover, .uav-btn-mini.active {
-            background: rgba(196, 122, 60, 0.12);
-            color: var(--text-primary);
-            border-color: #C47A3C;
+            background: rgba(56, 189, 248, 0.2);
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
         }
 
         /* Hover Subsystem Tooltip */
@@ -595,16 +568,16 @@ DASHBOARD_HTML = """
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(41, 39, 34, 0.95);
-            border: 1px solid rgba(70, 65, 55, 0.20);
+            background: rgba(7, 11, 20, 0.92);
+            border: 1px solid var(--accent-cyan);
             border-radius: 6px;
             padding: 0.35rem 0.6rem;
             font-size: 0.72rem;
             font-family: 'JetBrains Mono', monospace;
-            color: #F3F0E9;
+            color: #fff;
             pointer-events: none;
             z-index: 30;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
             display: none;
         }
 
@@ -616,8 +589,8 @@ DASHBOARD_HTML = """
         }
 
         .telemetry-card {
-            background: rgba(255, 255, 255, 0.45);
-            border: 1px solid rgba(70, 65, 55, 0.08);
+            background: rgba(14, 21, 38, 0.7);
+            border: 1px solid var(--border-subtle);
             border-radius: 8px;
             padding: 0.75rem;
             display: flex;
@@ -629,8 +602,8 @@ DASHBOARD_HTML = """
         }
 
         .telemetry-card:hover {
-            border-color: #C47A3C;
-            background: rgba(255, 255, 255, 0.75);
+            border-color: var(--accent-cyan);
+            background: rgba(20, 32, 56, 0.8);
         }
 
         .card-top {
@@ -641,31 +614,30 @@ DASHBOARD_HTML = """
 
         .card-name {
             font-size: 0.72rem;
-            color: #3F3C34;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-weight: 650;
+            font-weight: 500;
         }
 
         .card-unit {
             font-size: 0.65rem;
-            color: #7E786D;
+            color: var(--text-muted);
             font-family: 'JetBrains Mono', monospace;
-            font-weight: 500;
         }
 
         .card-val {
             font-family: 'JetBrains Mono', monospace;
             font-size: 1.4rem;
             font-weight: 700;
-            color: #1E2022;
+            color: #ffffff;
             margin: 0.3rem 0 0.15rem 0;
             letter-spacing: -0.5px;
         }
 
         .card-progress-bar {
             height: 4px;
-            background: rgba(70, 65, 55, 0.08);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 2px;
             overflow: hidden;
             margin-top: 0.35rem;
@@ -673,7 +645,7 @@ DASHBOARD_HTML = """
 
         .card-progress-fill {
             height: 100%;
-            background: var(--accent-amber);
+            background: var(--accent-cyan);
             width: 50%;
             transition: width 0.4s ease, background 0.3s ease;
         }
@@ -686,13 +658,13 @@ DASHBOARD_HTML = """
         }
 
         .scenario-btn {
-            background: rgba(255, 255, 255, 0.45);
-            border: 1px solid rgba(70, 65, 55, 0.08);
-            color: #292722;
+            background: rgba(14, 21, 38, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
             padding: 0.5rem 0.75rem;
             border-radius: 8px;
             font-size: 0.78rem;
-            font-weight: 650;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -703,31 +675,30 @@ DASHBOARD_HTML = """
         }
 
         .scenario-btn:hover {
-            border-color: var(--accent-amber);
-            color: #1E2022;
-            background: rgba(196, 122, 60, 0.08);
+            border-color: var(--accent-cyan);
+            color: var(--text-primary);
+            background: rgba(56, 189, 248, 0.1);
         }
 
         .scenario-btn.active {
             border-color: var(--accent-rose);
-            background: rgba(184, 92, 82, 0.12);
-            color: #1E2022;
+            background: rgba(239, 68, 68, 0.15);
+            color: #fff;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
         }
 
         .scenario-btn.active.normal {
             border-color: var(--accent-emerald);
-            background: rgba(79, 128, 104, 0.12);
-            color: #1E2022;
+            background: rgba(16, 185, 129, 0.15);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
         }
 
         .scenario-tag {
             font-size: 0.65rem;
             padding: 0.12rem 0.4rem;
             border-radius: 4px;
-            background: rgba(70, 65, 55, 0.08);
-            color: #3F3C34;
+            background: rgba(255, 255, 255, 0.06);
             font-family: 'JetBrains Mono', monospace;
-            font-weight: 600;
         }
 
         /* Main Split Deck: Left Half (Sensors & Charts) | Right Half (Digital Twin Diagnostics) */
@@ -756,12 +727,9 @@ DASHBOARD_HTML = """
         }
 
         .advisory-box {
-            background: rgba(255, 255, 255, 0.55);
+            background: rgba(14, 21, 38, 0.85);
             border-radius: 8px;
             border-left: 4px solid var(--accent-emerald);
-            border-top: 1px solid rgba(70, 65, 55, 0.08);
-            border-right: 1px solid rgba(70, 65, 55, 0.08);
-            border-bottom: 1px solid rgba(70, 65, 55, 0.08);
             padding: 0.85rem 1rem;
             display: flex;
             flex-direction: column;
@@ -770,24 +738,23 @@ DASHBOARD_HTML = """
         }
 
         .advisory-box.warning {
-            border-left-color: var(--accent-warn);
-            background: rgba(184, 138, 69, 0.08);
+            border-left-color: var(--accent-amber);
+            background: rgba(245, 158, 11, 0.08);
         }
 
         .advisory-box.critical {
             border-left-color: var(--accent-rose);
-            background: rgba(184, 92, 82, 0.08);
+            background: rgba(239, 68, 68, 0.1);
         }
 
         .advisory-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 750;
+            font-size: 0.9rem;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 0.5rem;
             text-transform: uppercase;
-            color: #1E2022;
         }
 
         .advisory-desc {
@@ -799,23 +766,21 @@ DASHBOARD_HTML = """
         .advisory-actions {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.74rem;
-            color: var(--accent-amber);
-            background: rgba(70, 65, 55, 0.06);
+            color: var(--accent-cyan);
+            background: rgba(0,0,0,0.3);
             padding: 0.4rem 0.6rem;
             border-radius: 4px;
-            font-weight: 600;
         }
 
         /* Subsystem PHM & Diagnostics List */
         .diag-section-header {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.84rem;
-            font-weight: 750;
+            font-size: 0.78rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #1E2022;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-top: 0.85rem;
+            margin-bottom: 0.45rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -828,8 +793,8 @@ DASHBOARD_HTML = """
         }
 
         .diag-subsystem-item {
-            background: rgba(255, 255, 255, 0.45);
-            border: 1px solid rgba(70, 65, 55, 0.08);
+            background: rgba(14, 21, 38, 0.6);
+            border: 1px solid var(--border-subtle);
             border-radius: 6px;
             padding: 0.5rem 0.7rem;
             display: flex;
@@ -846,9 +811,8 @@ DASHBOARD_HTML = """
         }
 
         .diag-subsystem-name {
-            font-weight: 650;
-            color: #292722;
-            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 0.4rem;
@@ -863,7 +827,7 @@ DASHBOARD_HTML = """
 
         .diag-progress-bar {
             height: 4px;
-            background: rgba(70, 65, 55, 0.08);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 2px;
             overflow: hidden;
         }
@@ -883,8 +847,8 @@ DASHBOARD_HTML = """
         }
 
         .diag-phm-card {
-            background: rgba(255, 255, 255, 0.45);
-            border: 1px solid rgba(70, 65, 55, 0.08);
+            background: rgba(14, 21, 38, 0.6);
+            border: 1px solid var(--border-subtle);
             border-radius: 6px;
             padding: 0.5rem 0.65rem;
         }
@@ -901,12 +865,12 @@ DASHBOARD_HTML = """
             font-size: 0.95rem;
             font-weight: 700;
             margin-top: 0.15rem;
-            color: var(--accent-amber);
+            color: var(--accent-cyan);
         }
 
         .diag-log-container {
-            background: rgba(255, 255, 255, 0.55);
-            border: 1px solid rgba(70, 65, 55, 0.08);
+            background: rgba(7, 11, 20, 0.7);
+            border: 1px solid var(--border-subtle);
             border-radius: 6px;
             padding: 0.45rem 0.65rem;
             margin-top: 0.6rem;
@@ -931,13 +895,661 @@ DASHBOARD_HTML = """
             font-family: 'JetBrains Mono', monospace;
         }
 
-        .badge-optimal { background: rgba(79, 128, 104, 0.12); color: var(--accent-emerald); border: 1px solid rgba(79, 128, 104, 0.3); }
-        .badge-warning { background: rgba(184, 138, 69, 0.12); color: var(--accent-warn); border: 1px solid rgba(184, 138, 69, 0.3); }
-        .badge-critical { background: rgba(184, 92, 82, 0.12); color: var(--accent-rose); border: 1px solid rgba(184, 92, 82, 0.3); }
+        .badge-optimal { background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+        .badge-critical { background: rgba(239, 68, 68, 0.2); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
+
+        /* Remaining Time Navigation Button */
+        .nav-rul-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(56, 189, 248, 0.15));
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            color: var(--accent-purple);
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.82rem;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+        .nav-rul-btn:hover {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(56, 189, 248, 0.3));
+            box-shadow: 0 0 16px rgba(168, 85, 247, 0.3);
+            color: #fff;
+        }
+        .nav-rul-btn.active {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(56, 189, 248, 0.25));
+            border-color: var(--accent-purple);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+        .nav-rul-btn svg { width: 18px; height: 18px; }
+
+        /* RUL Prognostics Panel */
+        .rul-panel-wrapper {
+            display: none;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .rul-panel-wrapper.visible { display: flex; }
+        .main-dashboard-content.hidden { display: none; }
+
+        .rul-hero {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 1200px) {
+            .rul-hero { grid-template-columns: 1fr; }
+        }
+
+        .rul-logo-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+        }
+
+        .rul-hourglass-svg {
+            width: 100px;
+            height: 100px;
+            filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.4));
+            animation: rul-glow 2.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes rul-glow {
+            0% { filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.3)); }
+            100% { filter: drop-shadow(0 0 28px rgba(168, 85, 247, 0.6)); }
+        }
+
+        .rul-big-number {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--accent-purple);
+            text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+
+        .rul-big-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .rul-chart-panel {
+            min-height: 280px;
+        }
+
+        .rul-chart-container {
+            height: 240px;
+            position: relative;
+        }
+
+        .rul-metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+
+        .rul-metric-card {
+            background: rgba(14, 21, 38, 0.6);
+            padding: 0.6rem 0.7rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+
+        .rul-metric-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .rul-metric-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-top: 2px;
+            color: var(--accent-purple);
+        }
+
+        .rul-engine-selector {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .rul-engine-btn {
+            background: rgba(14, 21, 38, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 0.3rem 0.55rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .rul-engine-btn:hover {
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+        }
+
+        .rul-engine-btn.active {
+            background: rgba(168, 85, 247, 0.2);
+            border-color: var(--accent-purple);
+            color: #fff;
+            box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+        }
+
+        /* ===== Auth Screen Styles ===== */
+        #auth-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg-base);
+            background-image:
+                radial-gradient(at 20% 30%, rgba(37, 99, 235, 0.15) 0px, transparent 50%),
+                radial-gradient(at 80% 70%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(168, 85, 247, 0.05) 0px, transparent 60%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #auth-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .auth-card {
+            background: rgba(14, 21, 38, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            border-radius: 16px;
+            padding: 2.5rem 2.75rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow:
+                0 0 40px rgba(56, 189, 248, 0.06),
+                0 25px 50px rgba(0, 0, 0, 0.4);
+            animation: authCardIn 0.6s ease-out;
+        }
+
+        @keyframes authCardIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 1.75rem;
+        }
+
+        .auth-logo .logo-badge {
+            display: inline-block;
+            font-size: 1.4rem;
+            padding: 0.5rem 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .auth-logo-subtitle {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .auth-card h2 {
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 600;
+            font-size: 1.15rem;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .auth-field {
+            margin-bottom: 1.15rem;
+        }
+
+        .auth-field label {
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 0.4rem;
+        }
+
+        .auth-field input {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            background: rgba(7, 11, 20, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .auth-field input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+        }
+
+        .auth-field input::placeholder {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .auth-submit-btn {
+            width: 100%;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            background: linear-gradient(135deg, #2563eb, #0284c7);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-submit-btn:hover {
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .auth-submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .auth-submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 1.25rem;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .auth-toggle a {
+            color: var(--accent-cyan);
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .auth-toggle a:hover {
+            color: #7dd3fc;
+            text-decoration: underline;
+        }
+
+        .auth-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            display: none;
+            animation: authErrorIn 0.3s ease;
+        }
+
+        @keyframes authErrorIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .auth-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #6ee7b7;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            display: none;
+            animation: authErrorIn 0.3s ease;
+        }
+
+        /* Logout & user display in header */
+        .auth-user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .auth-user-email {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .auth-logout-btn {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #ef4444;
+            padding: 0.3rem 0.65rem;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .auth-logout-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
+        }
+
+        /* Hide dashboard content while unauthenticated */
+        .app-hidden {
+            display: none !important;
+        }
+
+        /* ===== Google OAuth Button ===== */
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1.25rem 0;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .auth-divider span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .auth-google-btn {
+            width: 100%;
+            padding: 0.7rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+
+        .auth-google-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .auth-google-btn:active {
+            transform: translateY(0);
+        }
+
+        .auth-google-btn svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        /* ===== Sensor vs Engine Diagnosis Panel ===== */
+        .diag-diagnosis-section {
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .diag-diagnosis-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.3s ease;
+        }
+
+        .diag-badge-normal {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .diag-badge-sensor {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-amber);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            animation: pulse-warn 1.2s infinite alternate;
+        }
+
+        .diag-badge-engine {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-rose);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            animation: pulse-crit 0.8s infinite alternate;
+        }
+
+        .diag-badge-unknown {
+            background: rgba(168, 85, 247, 0.12);
+            color: var(--accent-purple);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+        }
+
+        .diag-confidence-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.65rem;
+        }
+
+        .diag-conf-item {
+            flex: 1;
+            background: rgba(14, 21, 38, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 0.45rem 0.6rem;
+            text-align: center;
+        }
+
+        .diag-conf-label {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .diag-conf-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .sensor-bars-container {
+            margin-top: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .sensor-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sensor-bar-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            width: 75px;
+            text-align: right;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .sensor-bar-track {
+            flex: 1;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sensor-bar-fill {
+            height: 100%;
+            background: var(--accent-emerald);
+            border-radius: 3px;
+            transition: width 0.4s ease, background 0.3s ease;
+            min-width: 2px;
+        }
+
+        .sensor-bar-fill.elevated {
+            background: var(--accent-amber);
+        }
+
+        .sensor-bar-fill.critical {
+            background: var(--accent-rose);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+        }
+
+        .sensor-bar-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            width: 36px;
+            text-align: left;
+        }
+
+        .diag-evidence-box {
+            margin-top: 0.65rem;
+            background: rgba(7, 11, 20, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 0.55rem 0.7rem;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        .diag-suspected-sensor {
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .diag-suspected-label {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .diag-suspected-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--accent-amber);
+        }
     </style>
 </head>
 <body>
-    <header>
+    <!-- ===== AUTH SCREEN OVERLAY ===== -->
+    <div id="auth-screen">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <div class="logo-badge">AEROTWIN</div>
+                <div class="auth-logo-subtitle">Operator Authentication Required</div>
+            </div>
+            <h2 id="auth-title">Sign In to GCS</h2>
+            <div class="auth-error" id="auth-error"></div>
+            <div class="auth-success" id="auth-success"></div>
+            <form id="auth-form" autocomplete="on">
+                <div class="auth-field">
+                    <label for="auth-email">Email</label>
+                    <input type="email" id="auth-email" placeholder="operator@example.com" required autocomplete="email" />
+                </div>
+                <div class="auth-field">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" placeholder="Enter your password" required autocomplete="current-password" />
+                </div>
+                <button type="submit" class="auth-submit-btn" id="auth-submit-btn">SIGN IN</button>
+            </form>
+            <div class="auth-divider"><span>or</span></div>
+            <button class="auth-google-btn" id="auth-google-btn" onclick="handleGoogleSignIn()">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Sign in with Google
+            </button>
+            <div class="auth-toggle">
+                <span id="auth-toggle-text">Don't have an account?</span>
+                <a id="auth-toggle-link" onclick="toggleAuthMode()">Sign Up</a>
+            </div>
+        </div>
+    </div>
+
+    <header id="app-header" class="app-hidden">
         <div class="brand">
             <div class="logo-badge">AEROTWIN</div>
             <div>
@@ -951,57 +1563,60 @@ DASHBOARD_HTML = """
             <div><span class="metric-tag">MISSION:</span> <span class="metric-val" id="val-mission">LIVE_SIM_001</span></div>
             <div><span class="metric-tag">ALTITUDE:</span> <span class="metric-val" id="val-alt">15,000 FT</span></div>
             <div><span class="metric-tag">THROTTLE:</span> <span class="metric-val" id="val-throttle">75%</span></div>
+            <button class="nav-rul-btn" id="btn-rul-view" onclick="toggleRulView()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+                REMAINING TIME
+            </button>
             <div id="conn-badge" class="status-pill">
                 <span class="status-dot"></span>
                 <span id="conn-text">LIVE 1 Hz</span>
             </div>
+            <div class="auth-user-info">
+                <span class="auth-user-email" id="auth-user-email"></span>
+                <button class="auth-logout-btn" id="auth-logout-btn" onclick="handleLogout()">LOGOUT</button>
+            </div>
         </div>
     </header>
 
-    <main>
-        <!-- 1. TOP — EXISTING ENGINE HEALTH / STATUS -->
-        <div class="top-status-deck">
-            <div class="status-hero-card">
-                <div class="status-hero-left">
-                    <div class="health-display-hero">
-                        <div class="health-circle-wrapper">
-                            <svg class="health-circle-svg" viewBox="0 0 160 160">
-                                <circle class="health-circle-bg" cx="80" cy="80" r="70"></circle>
-                                <circle id="health-circle-bar" class="health-circle-bar" cx="80" cy="80" r="70"></circle>
-                            </svg>
-                            <div class="health-inner-text">
-                                <span id="health-val" class="health-number">100</span>
-                                <span class="health-unit">HEALTH INDEX</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="status-hero-meta">
-                        <div class="status-badge-row">
-                            <span class="panel-title">Engine Health Index</span>
-                            <span id="health-badge" class="status-badge-lg badge-optimal">OPTIMAL</span>
-                        </div>
-                        <div class="status-stats-row">
-                            <div class="hero-stat-box">
-                                <div class="meta-label">Est. RUL</div>
-                                <div class="meta-val hero-val" id="val-rul">160 hrs</div>
-                            </div>
-                            <div class="hero-stat-box">
-                                <div class="meta-label">Anomaly State</div>
-                                <div class="meta-val hero-val" id="val-state" style="color: var(--accent-emerald);">NORMAL</div>
-                            </div>
+    <main id="app-main" class="app-hidden">
+        <div class="main-dashboard-content" id="main-dashboard">
+        <!-- Top Operational Deck -->
+        <div class="top-deck">
+            <!-- Health & RUL Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Engine Health Index</span>
+                    <span id="health-badge" class="status-badge-lg badge-optimal">OPTIMAL</span>
+                </div>
+                <div class="health-display">
+                    <div class="health-circle-wrapper">
+                        <svg class="health-circle-svg" viewBox="0 0 160 160">
+                            <circle class="health-circle-bg" cx="80" cy="80" r="70"></circle>
+                            <circle id="health-circle-bar" class="health-circle-bar" cx="80" cy="80" r="70"></circle>
+                        </svg>
+                        <div class="health-inner-text">
+                            <span id="health-val" class="health-number">100</span>
+                            <span class="health-unit">HEALTH INDEX</span>
                         </div>
                     </div>
                 </div>
+                <div class="health-meta-grid">
+                    <div class="meta-stat">
+                        <div class="meta-label">Est. RUL</div>
+                        <div class="meta-val" id="val-rul">160 hrs</div>
+                    </div>
+                    <div class="meta-stat">
+                        <div class="meta-label">Anomaly State</div>
+                        <div class="meta-val" id="val-state" style="color: var(--accent-emerald);">NORMAL</div>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <!-- 2. CENTER — DIGITAL TWIN ENGINE MAIN VISUAL FOCUS -->
-        <div class="center-twin-deck">
-            <div class="panel uav-twin-panel hero-twin-card">
+            <!-- MALE UAV DIGITAL TWIN MINI-CLONE VISUALIZER -->
+            <div class="panel uav-twin-panel">
                 <div class="panel-header">
                     <span class="panel-title">
-                        MALE UAV Airframe & Subsystem Mini-Clone
+                        <span>🛩️</span> MALE UAV Airframe & Subsystem Mini-Clone
                     </span>
                     <div class="uav-view-controls">
                         <button class="uav-btn-mini active" id="btn-view-all" onclick="setViewMode('full')">Full Drone</button>
@@ -1018,34 +1633,38 @@ DASHBOARD_HTML = """
                     <!-- Vector Graphic of MALE UAV Digital Twin -->
                     <svg class="uav-svg-model" id="uav-svg" viewBox="0 0 540 270" xmlns="http://www.w3.org/2000/svg">
                         <defs>
-                            <!-- Engineering CAD Warm Neutral Gradients -->
+                            <!-- Grid & HUD gradients -->
                             <linearGradient id="fuselageGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#363430" />
-                                <stop offset="50%" stop-color="#4D4942" />
-                                <stop offset="100%" stop-color="#363430" />
+                                <stop offset="0%" stop-color="#0f172a" />
+                                <stop offset="50%" stop-color="#1e293b" />
+                                <stop offset="100%" stop-color="#0f172a" />
                             </linearGradient>
                             <linearGradient id="wingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#3F3C36" />
-                                <stop offset="50%" stop-color="#545048" />
-                                <stop offset="100%" stop-color="#3F3C36" />
+                                <stop offset="0%" stop-color="#0b1329" />
+                                <stop offset="50%" stop-color="#1e293b" />
+                                <stop offset="100%" stop-color="#0b1329" />
                             </linearGradient>
+                            <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="3" result="blur" />
+                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
                         </defs>
 
                         <!-- High-Aspect-Ratio MALE UAV Glider Wings -->
                         <g id="uav-wings" class="uav-wing-structure">
                             <!-- Left Wing -->
-                            <polygon points="180,135 210,25 240,25 230,135" fill="url(#wingGrad)" stroke="#6B655A" stroke-width="1.5" />
+                            <polygon points="180,135 210,25 240,25 230,135" fill="url(#wingGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
                             <!-- Right Wing -->
-                            <polygon points="180,135 210,245 240,245 230,135" fill="url(#wingGrad)" stroke="#6B655A" stroke-width="1.5" />
+                            <polygon points="180,135 210,245 240,245 230,135" fill="url(#wingGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
                             <!-- Wing Internal Fuel Tanks -->
-                            <line x1="200" y1="55" x2="225" y2="55" stroke="rgba(196, 122, 60, 0.40)" stroke-dasharray="3,2" />
-                            <line x1="200" y1="215" x2="225" y2="215" stroke="rgba(196, 122, 60, 0.40)" stroke-dasharray="3,2" />
+                            <line x1="200" y1="55" x2="225" y2="55" stroke="rgba(56, 189, 248, 0.25)" stroke-dasharray="3,2" />
+                            <line x1="200" y1="215" x2="225" y2="215" stroke="rgba(56, 189, 248, 0.25)" stroke-dasharray="3,2" />
                         </g>
 
                         <!-- Inverted V-Tail Empennage -->
                         <g id="uav-tail">
-                            <polygon points="380,135 440,75 455,75 420,135" fill="#3F3C36" stroke="#6B655A" stroke-width="1.5" />
-                            <polygon points="380,135 440,195 455,195 420,135" fill="#3F3C36" stroke="#6B655A" stroke-width="1.5" />
+                            <polygon points="380,135 440,75 455,75 420,135" fill="#0b1329" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
+                            <polygon points="380,135 440,195 455,195 420,135" fill="#0b1329" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.2" />
                         </g>
 
                         <!-- Main Fuselage Contour -->
@@ -1056,24 +1675,24 @@ DASHBOARD_HTML = """
                            onmouseenter="showTooltip('Avionics & Sensor Bay (Nose)', 'Dual-redundant Flight Computer & CHT Sensor Bus')" 
                            onmouseleave="hideTooltip()">
                             <path d="M 60,135 C 68,122 100,122 110,135 C 100,148 68,148 60,135 Z" class="part-nominal" id="svg-part-avionics" />
-                            <circle cx="85" cy="135" r="3.5" fill="#C47A3C" />
-                            <text x="85" y="112" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">AVIONICS/PROBE</text>
-                            <line x1="85" y1="116" x2="85" y2="126" stroke="#6E685D" stroke-width="1.0" />
+                            <circle cx="85" cy="135" r="3.5" fill="#38bdf8" />
+                            <text x="85" y="112" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">AVIONICS/PROBE</text>
+                            <line x1="85" y1="116" x2="85" y2="126" stroke="#64748b" stroke-width="0.8" />
                         </g>
 
                         <!-- Mid-Fuselage Payload / Fuel Cell -->
-                        <rect x="135" y="126" width="60" height="18" rx="3" fill="rgba(196, 122, 60, 0.12)" stroke="rgba(196, 122, 60, 0.35)" stroke-width="1" />
+                        <rect x="135" y="126" width="60" height="18" rx="3" fill="rgba(37, 99, 235, 0.1)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1" />
 
                         <!-- Coolant Radiator & Ram-Air Intake Subsystem -->
                         <g id="part-radiator" class="uav-subsystem"
                            onmouseenter="showTooltip('Cooling System & Radiator', 'Ram-air cooling scoop, liquid coolant jacket & CHT heat sink')" 
                            onmouseleave="hideTooltip()">
                             <rect x="235" y="115" width="28" height="40" rx="3" class="part-nominal" id="svg-part-radiator" />
-                            <line x1="240" y1="119" x2="240" y2="151" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
-                            <line x1="249" y1="119" x2="249" y2="151" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
-                            <line x1="258" y1="119" x2="258" y2="151" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
-                            <text x="249" y="105" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">RADIATOR/COOLING</text>
-                            <line x1="249" y1="107" x2="249" y2="114" stroke="#6E685D" stroke-width="1.0" />
+                            <line x1="240" y1="119" x2="240" y2="151" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+                            <line x1="249" y1="119" x2="249" y2="151" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+                            <line x1="258" y1="119" x2="258" y2="151" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+                            <text x="249" y="105" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">RADIATOR/COOLING</text>
+                            <line x1="249" y1="107" x2="249" y2="114" stroke="#64748b" stroke-width="0.8" />
                         </g>
 
                         <!-- Piston Engine Block (4-Cylinder Boxer Engine) -->
@@ -1088,19 +1707,19 @@ DASHBOARD_HTML = """
                             <!-- Cylinder 2 & 4 (Bottom) -->
                             <rect x="290" y="147" width="22" height="11" rx="2" class="part-nominal" id="svg-cyl-bot1" />
                             <rect x="320" y="147" width="22" height="11" rx="2" class="part-nominal" id="svg-cyl-bot2" />
-                            <text x="315" y="98" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PISTON ENGINE BLOCK</text>
-                            <line x1="315" y1="100" x2="315" y2="111" stroke="#6E685D" stroke-width="1.0" />
+                            <text x="315" y="98" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PISTON ENGINE BLOCK</text>
+                            <line x1="315" y1="100" x2="315" y2="111" stroke="#64748b" stroke-width="0.8" />
                         </g>
 
                         <!-- Fuel Injection Rail Subsystem -->
                         <g id="part-fuel-system" class="uav-subsystem"
                            onmouseenter="showTooltip('Fuel Injection Rail', 'High-pressure electronic fuel rail & port injectors')" 
                            onmouseleave="hideTooltip()">
-                            <path d="M 215,135 L 285,130 M 285,130 L 345,130" stroke="#C47A3C" stroke-width="1.8" fill="none" id="svg-part-fuel" />
-                            <circle cx="301" cy="130" r="2.5" fill="#C47A3C" id="svg-inj-1" />
-                            <circle cx="331" cy="130" r="2.5" fill="#C47A3C" id="svg-inj-2" />
-                            <text x="300" y="174" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">FUEL RAIL</text>
-                            <line x1="300" y1="166" x2="300" y2="135" stroke="#6E685D" stroke-width="1.0" />
+                            <path d="M 215,135 L 285,130 M 285,130 L 345,130" stroke="#38bdf8" stroke-width="1.8" fill="none" id="svg-part-fuel" />
+                            <circle cx="301" cy="130" r="2.5" fill="#38bdf8" id="svg-inj-1" />
+                            <circle cx="331" cy="130" r="2.5" fill="#38bdf8" id="svg-inj-2" />
+                            <text x="300" y="174" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">FUEL RAIL</text>
+                            <line x1="300" y1="166" x2="300" y2="135" stroke="#64748b" stroke-width="0.8" />
                         </g>
 
                         <!-- Lubrication Sump & Oil Lines Subsystem -->
@@ -1108,27 +1727,27 @@ DASHBOARD_HTML = """
                            onmouseenter="showTooltip('Lubrication & Oil Circuit', 'Oil sump, mechanical scavenge pump & oil cooling lines')" 
                            onmouseleave="hideTooltip()">
                             <rect x="360" y="125" width="26" height="20" rx="3" class="part-nominal" id="svg-part-oil" />
-                            <path d="M 350,140 L 360,140" stroke="#4F8068" stroke-width="1.5" />
-                            <text x="373" y="174" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">OIL SUMP/PUMP</text>
-                            <line x1="373" y1="166" x2="373" y2="147" stroke="#6E685D" stroke-width="1.0" />
+                            <path d="M 350,140 L 360,140" stroke="#10b981" stroke-width="1.5" />
+                            <text x="373" y="174" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">OIL SUMP/PUMP</text>
+                            <line x1="373" y1="166" x2="373" y2="147" stroke="#64748b" stroke-width="0.8" />
                         </g>
 
                         <!-- Vibration Dampening Mounts -->
                         <g id="part-mounts" class="uav-subsystem"
                            onmouseenter="showTooltip('Engine Dynafocal Mounts', 'Vibration isolation dampers & airframe structural nacelle')" 
                            onmouseleave="hideTooltip()">
-                            <circle cx="282" cy="120" r="3" fill="#6E685D" id="svg-mount-1" />
-                            <circle cx="282" cy="150" r="3" fill="#6E685D" id="svg-mount-2" />
-                            <circle cx="352" cy="120" r="3" fill="#6E685D" id="svg-mount-3" />
-                            <circle cx="352" cy="150" r="3" fill="#6E685D" id="svg-mount-4" />
+                            <circle cx="282" cy="120" r="3" fill="#64748b" id="svg-mount-1" />
+                            <circle cx="282" cy="150" r="3" fill="#64748b" id="svg-mount-2" />
+                            <circle cx="352" cy="120" r="3" fill="#64748b" id="svg-mount-3" />
+                            <circle cx="352" cy="150" r="3" fill="#64748b" id="svg-mount-4" />
                         </g>
 
                         <!-- Exhaust Header & Turbocharger -->
                         <g id="part-exhaust" class="uav-subsystem"
                            onmouseenter="showTooltip('Exhaust & Turbocharger', 'Inconel exhaust headers & variable geometry turbine (EGT sensor zone)')" 
                            onmouseleave="hideTooltip()">
-                            <path d="M 345,123 C 375,116 395,118 410,124" stroke="#B85C52" stroke-width="2" fill="none" id="svg-part-exhaust" />
-                            <circle cx="412" cy="124" r="4.5" fill="#B85C52" opacity="0.8" />
+                            <path d="M 345,123 C 375,116 395,118 410,124" stroke="#ef4444" stroke-width="2" fill="none" id="svg-part-exhaust" />
+                            <circle cx="412" cy="124" r="4.5" fill="#ef4444" opacity="0.8" />
                         </g>
 
                         <!-- Pusher Propeller Assembly (Rear) -->
@@ -1136,25 +1755,25 @@ DASHBOARD_HTML = """
                            onmouseenter="showTooltip('Pusher Propeller Hub', 'Variable-pitch composite pusher propeller assembly')" 
                            onmouseleave="hideTooltip()">
                             <!-- Propeller Hub -->
-                            <circle cx="472" cy="135" r="5" fill="#C47A3C" stroke="#ffffff" stroke-width="1" id="svg-part-propeller" />
+                            <circle cx="472" cy="135" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="1" id="svg-part-propeller" />
                             <!-- Rotating Blade Disc Effect -->
-                            <ellipse cx="472" cy="135" rx="3" ry="50" fill="rgba(196, 122, 60, 0.15)" stroke="rgba(196, 122, 60, 0.3)" stroke-dasharray="4,2" />
+                            <ellipse cx="472" cy="135" rx="3" ry="50" fill="rgba(56, 189, 248, 0.15)" stroke="rgba(56, 189, 248, 0.4)" stroke-dasharray="4,2" />
                             <!-- Propeller Blades with dynamic spin -->
                             <g class="propeller-blade" id="prop-blades">
-                                <line x1="472" y1="90" x2="472" y2="180" stroke="#3F3C36" stroke-width="3" stroke-linecap="round" />
-                                <circle cx="472" cy="90" r="2.5" fill="#B85C52" />
-                                <circle cx="472" cy="180" r="2.5" fill="#B85C52" />
+                                <line x1="472" y1="90" x2="472" y2="180" stroke="#f8fafc" stroke-width="3" stroke-linecap="round" />
+                                <circle cx="472" cy="90" r="2.5" fill="#ef4444" />
+                                <circle cx="472" cy="180" r="2.5" fill="#ef4444" />
                             </g>
-                            <text x="472" y="75" fill="#3F3C34" font-weight="600" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PUSHER PROP</text>
-                            <line x1="472" y1="78" x2="472" y2="88" stroke="#6E685D" stroke-width="1.0" />
+                            <text x="472" y="75" fill="#94a3b8" font-size="7" font-family="JetBrains Mono" text-anchor="middle">PUSHER PROP</text>
+                            <line x1="472" y1="78" x2="472" y2="88" stroke="#64748b" stroke-width="0.8" />
                         </g>
 
                         <!-- Anomaly Targeting Crosshair / Hotspot Pin -->
                         <g id="anomaly-reticle" style="display: none;">
-                            <circle cx="315" cy="135" r="24" fill="none" stroke="#B85C52" stroke-width="1.5" stroke-dasharray="4,3">
+                            <circle cx="315" cy="135" r="24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3">
                                 <animateTransform attributeName="transform" type="rotate" from="0 315 135" to="360 315 135" dur="4s" repeatCount="indefinite" />
                             </circle>
-                            <circle cx="315" cy="135" r="4" fill="#B85C52" />
+                            <circle cx="315" cy="135" r="4" fill="#ef4444" />
                         </g>
                     </svg>
 
@@ -1170,293 +1789,486 @@ DASHBOARD_HTML = """
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- 3. BOTTOM — EXISTING TELEMETRY, CHARTS & DIAGNOSTICS DATA -->
-        <div class="bottom-data-deck">
             <!-- Fault Injection Simulator (Interactive Demo) -->
-            <div class="panel fault-matrix-panel">
+            <div class="panel">
                 <div class="panel-header">
                     <span class="panel-title">Fault Injection Matrix</span>
                     <span class="scenario-tag" id="active-scenario-tag">NORMAL</span>
                 </div>
                 <div class="scenarios-container">
                     <button class="scenario-btn active normal" onclick="injectScenario('Normal')">
-                        <span>Nominal Operation</span>
+                        <span>🟢 Nominal Operation</span>
                         <span class="scenario-tag">HEALTHY</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Overheating')">
-                        <span>Cooling / Overheating</span>
+                        <span>🔥 Cooling / Overheating</span>
                         <span class="scenario-tag">THERMAL</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Injector_Degradation')">
-                        <span>Injector Degradation</span>
+                        <span>⚙️ Injector Degradation</span>
                         <span class="scenario-tag">COMBUSTION</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Lubrication')">
-                        <span>Lubrication Starvation</span>
+                        <span>🛢️ Lubrication Starvation</span>
                         <span class="scenario-tag">HYDRAULIC</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Vibration_Fault')">
-                        <span>Abnormal Vibration</span>
+                        <span>〰️ Abnormal Vibration</span>
                         <span class="scenario-tag">MECHANICAL</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Sensor_Drift')">
-                        <span>CHT Sensor Drift</span>
+                        <span>📡 CHT Sensor Drift</span>
                         <span class="scenario-tag">AVIONICS</span>
                     </button>
                     <button class="scenario-btn" onclick="injectScenario('Misfire')">
-                        <span>Cylinder Misfire</span>
+                        <span>💥 Cylinder Misfire</span>
                         <span class="scenario-tag">IGNITION</span>
+                    </button>
+                    <button class="scenario-btn" onclick="injectScenario('Sensor_Fault_Temp')">
+                        <span>🌡️ Sensor Fault: Temp</span>
+                        <span class="scenario-tag">SENSOR ISO</span>
+                    </button>
+                    <button class="scenario-btn" onclick="injectScenario('Engine_Failure_Multi')">
+                        <span>🔧 Engine Failure: Multi</span>
+                        <span class="scenario-tag">ENGINE DX</span>
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Split Deck: Left Half (Sensors & Waveforms) | Right Half (Digital Twin Predictive Diagnostics) -->
-            <div class="split-deck">
-                <!-- LEFT HALF: Live Sensor Telemetry Bars & Dynamics Waveform Chart -->
-                <div class="split-col">
-                    <!-- Live Piston Engine Sensor Telemetry -->
-                    <div class="panel">
-                        <div class="panel-header">
-                            <span class="panel-title">Live Sensor Telemetry Gauges</span>
-                            <span class="metric-tag" style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" id="val-timestamp">--:--:--</span>
-                        </div>
-                        <div class="telemetry-grid">
-                            <!-- RPM -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Rotational Speed</span>
-                                    <span class="card-unit">RPM</span>
-                                </div>
-                                <div class="card-val" id="val-rpm">6100</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-rpm" class="card-progress-fill" style="width: 75%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- CHT -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Cylinder Head (CHT)</span>
-                                    <span class="card-unit">°C</span>
-                                </div>
-                                <div class="card-val" id="val-cht">150.0</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-cht" class="card-progress-fill" style="width: 60%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- EGT -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Exhaust Gas (EGT)</span>
-                                    <span class="card-unit">°C</span>
-                                </div>
-                                <div class="card-val" id="val-egt">700.0</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-egt" class="card-progress-fill" style="width: 70%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Oil Pressure -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Oil Pressure</span>
-                                    <span class="card-unit">BAR</span>
-                                </div>
-                                <div class="card-val" id="val-oil-p">4.30</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-oil-p" class="card-progress-fill" style="width: 80%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Oil Temp -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Oil Temperature</span>
-                                    <span class="card-unit">°C</span>
-                                </div>
-                                <div class="card-val" id="val-oil-t">95.0</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-oil-t" class="card-progress-fill" style="width: 55%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Fuel Flow -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Fuel Flow</span>
-                                    <span class="card-unit">L/H</span>
-                                </div>
-                                <div class="card-val" id="val-fuel">18.5</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-fuel" class="card-progress-fill" style="width: 65%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Vibration -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Vibration RMS</span>
-                                    <span class="card-unit">g</span>
-                                </div>
-                                <div class="card-val" id="val-vib">0.200</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-vib" class="card-progress-fill" style="width: 25%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Battery -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Bus Voltage</span>
-                                    <span class="card-unit">V</span>
-                                </div>
-                                <div class="card-val" id="val-battery">28.0</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-battery" class="card-progress-fill" style="width: 90%;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Timing -->
-                            <div class="telemetry-card">
-                                <div class="card-top">
-                                    <span class="card-name">Injection Timing</span>
-                                    <span class="card-unit">° BTDC</span>
-                                </div>
-                                <div class="card-val" id="val-timing">22.0</div>
-                                <div class="card-progress-bar">
-                                    <div id="prog-timing" class="card-progress-fill" style="width: 60%;"></div>
-                                </div>
-                            </div>
-                        </div>
+        <!-- Split Deck: Left Half (Sensors & Waveforms) | Right Half (Digital Twin Predictive Diagnostics) -->
+        <div class="split-deck">
+            <!-- LEFT HALF: Live Sensor Telemetry Bars & Dynamics Waveform Chart -->
+            <div class="split-col">
+                <!-- Live Piston Engine Sensor Telemetry -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Live Sensor Telemetry Gauges</span>
+                        <span class="metric-tag" style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" id="val-timestamp">--:--:--</span>
                     </div>
-
-                    <!-- Dynamic Telemetry Waveform Chart -->
-                    <div class="panel">
-                        <div class="panel-header">
-                            <span class="panel-title">Real-Time Thermal & Combustion Dynamics</span>
-                            <span class="metric-tag">Live 30-Second Buffer</span>
+                    <div class="telemetry-grid">
+                        <!-- RPM -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Rotational Speed</span>
+                                <span class="card-unit">RPM</span>
+                            </div>
+                            <div class="card-val" id="val-rpm">6100</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-rpm" class="card-progress-fill" style="width: 75%;"></div>
+                            </div>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="telemetryChart"></canvas>
+
+                        <!-- CHT -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Cylinder Head (CHT)</span>
+                                <span class="card-unit">°C</span>
+                            </div>
+                            <div class="card-val" id="val-cht">150.0</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-cht" class="card-progress-fill" style="width: 60%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- EGT -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Exhaust Gas (EGT)</span>
+                                <span class="card-unit">°C</span>
+                            </div>
+                            <div class="card-val" id="val-egt">700.0</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-egt" class="card-progress-fill" style="width: 70%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Oil Pressure -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Oil Pressure</span>
+                                <span class="card-unit">BAR</span>
+                            </div>
+                            <div class="card-val" id="val-oil-p">4.30</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-oil-p" class="card-progress-fill" style="width: 80%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Oil Temp -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Oil Temperature</span>
+                                <span class="card-unit">°C</span>
+                            </div>
+                            <div class="card-val" id="val-oil-t">95.0</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-oil-t" class="card-progress-fill" style="width: 55%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Fuel Flow -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Fuel Flow</span>
+                                <span class="card-unit">L/H</span>
+                            </div>
+                            <div class="card-val" id="val-fuel">18.5</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-fuel" class="card-progress-fill" style="width: 65%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Vibration -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Vibration RMS</span>
+                                <span class="card-unit">g</span>
+                            </div>
+                            <div class="card-val" id="val-vib">0.200</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-vib" class="card-progress-fill" style="width: 25%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Battery -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Bus Voltage</span>
+                                <span class="card-unit">V</span>
+                            </div>
+                            <div class="card-val" id="val-battery">28.0</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-battery" class="card-progress-fill" style="width: 90%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Timing -->
+                        <div class="telemetry-card">
+                            <div class="card-top">
+                                <span class="card-name">Injection Timing</span>
+                                <span class="card-unit">° BTDC</span>
+                            </div>
+                            <div class="card-val" id="val-timing">22.0</div>
+                            <div class="card-progress-bar">
+                                <div id="prog-timing" class="card-progress-fill" style="width: 60%;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- RIGHT HALF: Digital Twin Predictive Diagnostics -->
-                <div class="split-col">
-                    <div class="panel" style="flex: 1;">
-                        <div class="panel-header">
-                            <span class="panel-title">
-                                Digital Twin Predictive Diagnostics
-                            </span>
-                            <span class="status-badge-lg badge-optimal" id="phm-mode-badge">PHM AI: ACTIVE</span>
+                <!-- Dynamic Telemetry Waveform Chart -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Real-Time Thermal & Combustion Dynamics</span>
+                        <span class="metric-tag">Live 30-Second Buffer</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="telemetryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT HALF: Digital Twin Predictive Diagnostics -->
+            <div class="split-col">
+                <div class="panel" style="flex: 1;">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <span>🧠</span> Digital Twin Predictive Diagnostics
+                        </span>
+                        <span class="status-badge-lg badge-optimal" id="phm-mode-badge">PHM AI: ACTIVE</span>
+                    </div>
+
+                    <!-- AI Diagnostic & Action Advisory Card -->
+                    <div id="advisory-card" class="advisory-box">
+                        <div class="advisory-title" id="advisory-title">
+                            <span>🛡️ Propulsion Health: Nominal</span>
+                        </div>
+                        <div class="advisory-desc" id="advisory-desc">
+                            All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are &lt; 2.5%.
+                        </div>
+                        <div class="advisory-actions" id="advisory-action">
+                            RECOMMENDATION: Continue planned mission profile. No maintenance required.
+                        </div>
+                    </div>
+
+                    <!-- Preventive Maintenance Box -->
+                    <div id="prevention-card" class="advisory-box" style="margin-top: 10px; border-color: rgba(56, 189, 248, 0.4); display: none;">
+                        <div class="advisory-title" style="color: var(--accent-cyan);">
+                            <span>🔧 Preventive Maintenance Action</span>
+                        </div>
+                        <div class="advisory-desc" id="prevention-action" style="color: var(--text-primary); font-size: 0.85rem;">
+                            -
+                        </div>
+                    </div>
+
+                    <!-- Feature Regression Plot (Matplotlib) -->
+                    <div class="diag-section-header" style="margin-top: 15px;">
+                        <span>Telemetry Feature Regression</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-cyan);">Live Buffer</span>
+                    </div>
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <img id="regression-plot" src="" alt="Regression Plot Loading..." style="width: 100%; border-radius: 8px; border: 1px solid var(--border-subtle); min-height: 200px; object-fit: contain; background: #070b14;" />
+                    </div>
+
+                    <!-- Subsystem Degradation & Physics Deviations -->
+                    <div class="diag-section-header">
+                        <span>Subsystem Physics Health & Integrity</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-cyan);">Cross-Residual Validation</span>
+                    </div>
+                    <div class="diag-subsystems-list">
+                        <!-- Thermal -->
+                        <div class="diag-subsystem-item">
+                            <div class="diag-subsystem-header">
+                                <span class="diag-subsystem-name">🔥 Thermal Core & Cooling Jacket</span>
+                                <span class="diag-subsystem-val" id="diag-val-thermal">98% NOMINAL</span>
+                            </div>
+                            <div class="diag-progress-bar">
+                                <div class="diag-progress-fill" id="diag-prog-thermal" style="width: 98%;"></div>
+                            </div>
                         </div>
 
-                        <!-- AI Diagnostic & Action Advisory Card -->
-                        <div id="advisory-card" class="advisory-box">
-                            <div class="advisory-title" id="advisory-title">
-                                Propulsion Health: Nominal
+                        <!-- Fuel & Combustion -->
+                        <div class="diag-subsystem-item">
+                            <div class="diag-subsystem-header">
+                                <span class="diag-subsystem-name">⚙️ Fuel Rail & Combustion Balance</span>
+                                <span class="diag-subsystem-val" id="diag-val-fuel">97% NOMINAL</span>
                             </div>
-                            <div class="advisory-desc" id="advisory-desc">
-                                All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are &lt; 2.5%.
-                            </div>
-                            <div class="advisory-actions" id="advisory-action">
-                                RECOMMENDATION: Continue planned mission profile. No maintenance required.
+                            <div class="diag-progress-bar">
+                                <div class="diag-progress-fill" id="diag-prog-fuel" style="width: 97%;"></div>
                             </div>
                         </div>
 
-                        <!-- Subsystem Degradation & Physics Deviations -->
+                        <!-- Lubrication -->
+                        <div class="diag-subsystem-item">
+                            <div class="diag-subsystem-header">
+                                <span class="diag-subsystem-name">🛢️ Lubrication Circuit & Sump</span>
+                                <span class="diag-subsystem-val" id="diag-val-oil">99% NOMINAL</span>
+                            </div>
+                            <div class="diag-progress-bar">
+                                <div class="diag-progress-fill" id="diag-prog-oil" style="width: 99%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Mechanical / Vibration -->
+                        <div class="diag-subsystem-item">
+                            <div class="diag-subsystem-header">
+                                <span class="diag-subsystem-name">〰️ Mechanical Balance & Mounts</span>
+                                <span class="diag-subsystem-val" id="diag-val-vib">96% NOMINAL</span>
+                            </div>
+                            <div class="diag-progress-bar">
+                                <div class="diag-progress-fill" id="diag-prog-vib" style="width: 96%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Avionics & Sensor Channel Fusion -->
+                        <div class="diag-subsystem-item">
+                            <div class="diag-subsystem-header">
+                                <span class="diag-subsystem-name">📡 Avionics Sensor Channel Fusion</span>
+                                <span class="diag-subsystem-val" id="diag-val-avionics">100% NOMINAL</span>
+                            </div>
+                            <div class="diag-progress-bar">
+                                <div class="diag-progress-fill" id="diag-prog-avionics" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PHM Prognostics & Maintenance Matrix -->
+                    <div class="diag-section-header">
+                        <span>PHM Prognostic Matrix</span>
+                    </div>
+                    <div class="diag-phm-grid">
+                        <div class="diag-phm-card">
+                            <div class="diag-phm-label">Anomaly Confidence</div>
+                            <div class="diag-phm-val" id="diag-stat-conf">99.4%</div>
+                        </div>
+                        <div class="diag-phm-card">
+                            <div class="diag-phm-label">Physics Residual</div>
+                            <div class="diag-phm-val" id="diag-stat-residual">&lt; 2.1% RMS</div>
+                        </div>
+                        <div class="diag-phm-card">
+                            <div class="diag-phm-label">Maintenance Priority</div>
+                            <div class="diag-phm-val" id="diag-stat-priority" style="color: var(--accent-emerald);">ROUTINE</div>
+                        </div>
+                        <div class="diag-phm-card">
+                            <div class="diag-phm-label">Degradation Trend</div>
+                            <div class="diag-phm-val" id="diag-stat-trend" style="color: var(--accent-cyan);">STABLE CRUISE</div>
+                        </div>
+                    </div>
+
+                    <!-- Live PHM Diagnostic Event Stream -->
+                    <div class="diag-log-container" id="diag-log-box">
+                        <span style="color: var(--accent-cyan); font-weight: 700;">PHM LOG:</span>
+                        <span id="diag-log-text">Physics-informed digital twin estimation in progress...</span>
+                    </div>
+
+                    <!-- ===== SENSOR vs ENGINE DIAGNOSIS PANEL ===== -->
+                    <div class="diag-diagnosis-section" id="sensor-diag-section">
                         <div class="diag-section-header">
-                            <span>Subsystem Physics Health & Integrity</span>
-                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-amber);">Cross-Residual Validation</span>
+                            <span>🔬 Sensor vs Engine Diagnosis</span>
+                            <span id="diag-diagnosis-badge" class="diag-diagnosis-badge diag-badge-normal">NORMAL</span>
                         </div>
-                        <div class="diag-subsystems-list">
-                            <!-- Thermal -->
-                            <div class="diag-subsystem-item">
-                                <div class="diag-subsystem-header">
-                                    <span class="diag-subsystem-name">Thermal Core & Cooling Jacket</span>
-                                    <span class="diag-subsystem-val" id="diag-val-thermal">98% NOMINAL</span>
-                                </div>
-                                <div class="diag-progress-bar">
-                                    <div class="diag-progress-fill" id="diag-prog-thermal" style="width: 98%;"></div>
-                                </div>
-                            </div>
 
-                            <!-- Fuel & Combustion -->
-                            <div class="diag-subsystem-item">
-                                <div class="diag-subsystem-header">
-                                    <span class="diag-subsystem-name">Fuel Rail & Combustion Balance</span>
-                                    <span class="diag-subsystem-val" id="diag-val-fuel">97% NOMINAL</span>
-                                </div>
-                                <div class="diag-progress-bar">
-                                    <div class="diag-progress-fill" id="diag-prog-fuel" style="width: 97%;"></div>
-                                </div>
-                            </div>
+                        <!-- Suspected Sensor -->
+                        <div class="diag-suspected-sensor" id="diag-suspected-row" style="display: none;">
+                            <span class="diag-suspected-label">Suspected Sensor:</span>
+                            <span class="diag-suspected-val" id="diag-suspected-val">—</span>
+                        </div>
 
-                            <!-- Lubrication -->
-                            <div class="diag-subsystem-item">
-                                <div class="diag-subsystem-header">
-                                    <span class="diag-subsystem-name">Lubrication Circuit & Sump</span>
-                                    <span class="diag-subsystem-val" id="diag-val-oil">99% NOMINAL</span>
-                                </div>
-                                <div class="diag-progress-bar">
-                                    <div class="diag-progress-fill" id="diag-prog-oil" style="width: 99%;"></div>
-                                </div>
+                        <!-- Confidence Scores -->
+                        <div class="diag-confidence-row">
+                            <div class="diag-conf-item">
+                                <div class="diag-conf-label">Sensor Fault Conf.</div>
+                                <div class="diag-conf-val" id="diag-sensor-conf" style="color: var(--accent-amber);">0%</div>
                             </div>
-
-                            <!-- Mechanical / Vibration -->
-                            <div class="diag-subsystem-item">
-                                <div class="diag-subsystem-header">
-                                    <span class="diag-subsystem-name">Mechanical Balance & Mounts</span>
-                                    <span class="diag-subsystem-val" id="diag-val-vib">96% NOMINAL</span>
-                                </div>
-                                <div class="diag-progress-bar">
-                                    <div class="diag-progress-fill" id="diag-prog-vib" style="width: 96%;"></div>
-                                </div>
+                            <div class="diag-conf-item">
+                                <div class="diag-conf-label">Engine Fault Conf.</div>
+                                <div class="diag-conf-val" id="diag-engine-conf" style="color: var(--accent-rose);">0%</div>
                             </div>
-
-                            <!-- Avionics & Sensor Channel Fusion -->
-                            <div class="diag-subsystem-item">
-                                <div class="diag-subsystem-header">
-                                    <span class="diag-subsystem-name">Avionics Sensor Channel Fusion</span>
-                                    <span class="diag-subsystem-val" id="diag-val-avionics">100% NOMINAL</span>
-                                </div>
-                                <div class="diag-progress-bar">
-                                    <div class="diag-progress-fill" id="diag-prog-avionics" style="width: 100%;"></div>
-                                </div>
+                            <div class="diag-conf-item">
+                                <div class="diag-conf-label">Persistence</div>
+                                <div class="diag-conf-val" id="diag-persistence" style="color: var(--accent-cyan);">0/5</div>
                             </div>
                         </div>
 
-                        <!-- PHM Prognostics & Maintenance Matrix -->
-                        <div class="diag-section-header">
-                            <span>PHM Prognostic Matrix</span>
+                        <!-- Sensor Anomaly Score Bars -->
+                        <div class="diag-section-header" style="margin-top: 0.6rem;">
+                            <span>Sensor Anomaly Scores</span>
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-cyan);">Cross-Prediction σ</span>
                         </div>
-                        <div class="diag-phm-grid">
-                            <div class="diag-phm-card">
-                                <div class="diag-phm-label">Anomaly Confidence</div>
-                                <div class="diag-phm-val" id="diag-stat-conf">99.4%</div>
-                            </div>
-                            <div class="diag-phm-card">
-                                <div class="diag-phm-label">Physics Residual</div>
-                                <div class="diag-phm-val" id="diag-stat-residual">&lt; 2.1% RMS</div>
-                            </div>
-                            <div class="diag-phm-card">
-                                <div class="diag-phm-label">Maintenance Priority</div>
-                                <div class="diag-phm-val" id="diag-stat-priority" style="color: var(--accent-emerald);">ROUTINE</div>
-                            </div>
-                            <div class="diag-phm-card">
-                                <div class="diag-phm-label">Degradation Trend</div>
-                                <div class="diag-phm-val" id="diag-stat-trend" style="color: var(--accent-amber);">STABLE CRUISE</div>
-                            </div>
+                        <div class="sensor-bars-container" id="sensor-bars-container">
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">RPM</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-rpm" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-rpm">0.0</span></div>
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">CHT</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-cht_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-cht_c">0.0</span></div>
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">EGT</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-egt_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-egt_c">0.0</span></div>
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">OIL P</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-oil_pressure_bar" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-oil_pressure_bar">0.0</span></div>
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">OIL T</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-oil_temperature_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-oil_temperature_c">0.0</span></div>
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">FUEL</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-fuel_flow_lh" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-fuel_flow_lh">0.0</span></div>
+                            <div class="sensor-bar-row"><span class="sensor-bar-label">VIB</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-vibration_g" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-vibration_g">0.0</span></div>
                         </div>
 
-                        <!-- Live PHM Diagnostic Event Stream -->
-                        <div class="diag-log-container" id="diag-log-box">
-                            <span style="color: var(--accent-amber); font-weight: 700;">PHM LOG:</span>
-                            <span id="diag-log-text">Physics-informed digital twin estimation in progress...</span>
+                        <!-- Evidence -->
+                        <div class="diag-evidence-box" id="diag-evidence">
+                            All engine sensors operating within expected cross-predicted relationships. No sensor or engine anomaly detected.
+                        </div>
+                    </div>
+                    <!-- ===== END SENSOR DIAGNOSIS PANEL ===== -->
+                </div>
+            </div>
+        </div>
+        </div><!-- /main-dashboard-content -->
+
+        <!-- ============================================================ -->
+        <!-- REMAINING TIME — RUL PROGNOSTICS PANEL                       -->
+        <!-- ============================================================ -->
+        <div class="rul-panel-wrapper" id="rul-panel">
+            <div class="rul-hero">
+                <!-- Left: Hourglass Logo & Big RUL Number -->
+                <div class="panel rul-logo-panel">
+                    <div class="panel-header" style="width:100%;">
+                        <span class="panel-title">
+                            <span>⏳</span> Remaining Time
+                        </span>
+                        <span class="status-badge-lg" id="rul-status-badge" style="background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); border: 1px solid var(--accent-purple);">LSTM AI</span>
+                    </div>
+                    <svg class="rul-hourglass-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="hgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#a855f7"/>
+                                <stop offset="100%" stop-color="#38bdf8"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Top plate -->
+                        <rect x="20" y="8" width="60" height="5" rx="2" fill="url(#hgGrad)" opacity="0.9"/>
+                        <!-- Bottom plate -->
+                        <rect x="20" y="87" width="60" height="5" rx="2" fill="url(#hgGrad)" opacity="0.9"/>
+                        <!-- Top glass -->
+                        <path d="M28 13 L28 35 L50 55 L72 35 L72 13 Z" fill="rgba(168,85,247,0.08)" stroke="url(#hgGrad)" stroke-width="2"/>
+                        <!-- Bottom glass -->
+                        <path d="M28 87 L28 65 L50 45 L72 65 L72 87 Z" fill="rgba(168,85,247,0.08)" stroke="url(#hgGrad)" stroke-width="2"/>
+                        <!-- Sand top -->
+                        <path d="M35 13 L35 30 L50 45 L65 30 L65 13 Z" fill="rgba(168,85,247,0.15)">
+                            <animate attributeName="d" dur="3s" repeatCount="indefinite"
+                                values="M35 13 L35 30 L50 45 L65 30 L65 13 Z;M35 13 L35 22 L50 37 L65 22 L65 13 Z;M35 13 L35 30 L50 45 L65 30 L65 13 Z"/>
+                        </path>
+                        <!-- Sand bottom -->
+                        <path d="M38 87 L38 78 L50 65 L62 78 L62 87 Z" fill="rgba(56,189,248,0.2)">
+                            <animate attributeName="d" dur="3s" repeatCount="indefinite"
+                                values="M38 87 L38 78 L50 65 L62 78 L62 87 Z;M35 87 L35 70 L50 57 L65 70 L65 87 Z;M38 87 L38 78 L50 65 L62 78 L62 87 Z"/>
+                        </path>
+                        <!-- Falling stream -->
+                        <line x1="50" y1="45" x2="50" y2="65" stroke="url(#hgGrad)" stroke-width="1.5" stroke-dasharray="3,3">
+                            <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="0.8s" repeatCount="indefinite"/>
+                        </line>
+                    </svg>
+                    <div class="rul-big-number" id="rul-big-val">--</div>
+                    <div class="rul-big-label">Predicted RUL (Cycles)</div>
+                    <div style="margin-top: 0.5rem;">
+                        <div class="rul-big-label">ENGINE UNIT</div>
+                        <div class="rul-engine-selector" id="rul-engine-selector">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: Live RUL Chart -->
+                <div class="panel rul-chart-panel">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <span>📈</span> Actual vs Predicted RUL — CMAPSS FD001 Live Inference
+                        </span>
+                        <span class="metric-tag" style="font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;" id="rul-cycle-counter">CYCLE: 0</span>
+                    </div>
+                    <div class="rul-chart-container">
+                        <canvas id="rulChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Right: RUL Metrics -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <span>🧠</span> LSTM Prognostic Metrics
+                        </span>
+                    </div>
+                    <div class="rul-metrics-grid">
+                        <div class="rul-metric-card">
+                            <div class="rul-metric-label">Predicted RUL</div>
+                            <div class="rul-metric-val" id="rul-m-predicted">--</div>
+                        </div>
+                        <div class="rul-metric-card">
+                            <div class="rul-metric-label">Actual RUL</div>
+                            <div class="rul-metric-val" id="rul-m-actual" style="color: var(--accent-cyan);">--</div>
+                        </div>
+                        <div class="rul-metric-card">
+                            <div class="rul-metric-label">Abs Error</div>
+                            <div class="rul-metric-val" id="rul-m-error" style="color: var(--accent-amber);">--</div>
+                        </div>
+                        <div class="rul-metric-card">
+                            <div class="rul-metric-label">Model MAE</div>
+                            <div class="rul-metric-val" id="rul-m-mae">10.08</div>
+                        </div>
+                        <div class="rul-metric-card">
+                            <div class="rul-metric-label">Window Size</div>
+                            <div class="rul-metric-val" id="rul-m-window">30</div>
+                        </div>
+                        <div class="rul-metric-card">
+                            <div class="rul-metric-label">Sensors Used</div>
+                            <div class="rul-metric-val" id="rul-m-sensors">15</div>
+                        </div>
+                    </div>
+                    <div class="diag-log-container" style="margin-top: 0.85rem;">
+                        <span style="color: var(--accent-purple); font-weight: 700;">RUL LOG:</span>
+                        <span id="rul-log-text">Waiting for engine unit selection...</span>
+                    </div>
+                    <div style="margin-top: 0.85rem;">
+                        <div class="advisory-box" id="rul-advisory" style="border-left-color: var(--accent-purple);">
+                            <div class="advisory-title" style="color: var(--accent-purple);">
+                                ⏳ CMAPSS FD001 Prognostic Dataset
+                            </div>
+                            <div class="advisory-desc">
+                                The LSTM model was trained on the NASA C-MAPSS turbofan engine degradation dataset. It predicts Remaining Useful Life from a rolling 30-cycle sensor window. RUL is clipped at 125 cycles.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1484,8 +2296,8 @@ DASHBOARD_HTML = """
                         {
                             label: 'CHT (°C)',
                             data: dataCHT,
-                            borderColor: '#C47A3C',
-                            backgroundColor: 'rgba(196, 122, 60, 0.1)',
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
                             tension: 0.3,
                             borderWidth: 2,
                             pointRadius: 0
@@ -1493,7 +2305,7 @@ DASHBOARD_HTML = """
                         {
                             label: 'EGT (°C)',
                             data: dataEGT,
-                            borderColor: '#B85C52',
+                            borderColor: '#ef4444',
                             backgroundColor: 'transparent',
                             tension: 0.3,
                             borderWidth: 2,
@@ -1502,7 +2314,7 @@ DASHBOARD_HTML = """
                         {
                             label: 'Oil Temp (°C)',
                             data: dataOilT,
-                            borderColor: '#B88A45',
+                            borderColor: '#f59e0b',
                             backgroundColor: 'transparent',
                             tension: 0.3,
                             borderWidth: 2,
@@ -1516,17 +2328,17 @@ DASHBOARD_HTML = """
                     animation: false,
                     plugins: {
                         legend: {
-                            labels: { color: '#292722', font: { family: 'Inter', size: 11 } }
+                            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
                         }
                     },
                     scales: {
                         x: {
-                            grid: { color: 'rgba(70, 65, 55, 0.08)' },
-                            ticks: { color: '#69645B', font: { family: 'JetBrains Mono', size: 10 } }
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
                         },
                         y: {
-                            grid: { color: 'rgba(70, 65, 55, 0.08)' },
-                            ticks: { color: '#69645B', font: { family: 'JetBrains Mono', size: 10 } }
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
                         }
                     }
                 }
@@ -1541,8 +2353,8 @@ DASHBOARD_HTML = """
 
             ws.onopen = () => {
                 document.getElementById('conn-text').innerText = 'LIVE 1 Hz';
-                document.getElementById('conn-badge').style.borderColor = 'rgba(79, 128, 104, 0.25)';
-                document.getElementById('conn-badge').style.color = '#4F8068';
+                document.getElementById('conn-badge').style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                document.getElementById('conn-badge').style.color = '#10b981';
             };
 
             ws.onmessage = (event) => {
@@ -1552,8 +2364,8 @@ DASHBOARD_HTML = """
 
             ws.onclose = () => {
                 document.getElementById('conn-text').innerText = 'RECONNECTING...';
-                document.getElementById('conn-badge').style.borderColor = 'rgba(184, 92, 82, 0.25)';
-                document.getElementById('conn-badge').style.color = '#B85C52';
+                document.getElementById('conn-badge').style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                document.getElementById('conn-badge').style.color = '#ef4444';
                 setTimeout(connectWebSocket, 2000);
             };
         }
@@ -1605,23 +2417,23 @@ DASHBOARD_HTML = """
             rulEl.innerText = `${estRulHours} hrs`;
 
             if (health > 85) {
-                healthBar.style.stroke = '#4F8068';
+                healthBar.style.stroke = '#10b981';
                 healthBadge.className = 'status-badge-lg badge-optimal';
                 healthBadge.innerText = 'OPTIMAL';
                 stateEl.innerText = data.fault_label.toUpperCase();
-                stateEl.style.color = '#4F8068';
+                stateEl.style.color = '#10b981';
             } else if (health > 60) {
-                healthBar.style.stroke = '#B88A45';
+                healthBar.style.stroke = '#f59e0b';
                 healthBadge.className = 'status-badge-lg badge-warning';
                 healthBadge.innerText = 'DEGRADED';
                 stateEl.innerText = data.fault_label.toUpperCase();
-                stateEl.style.color = '#B88A45';
+                stateEl.style.color = '#f59e0b';
             } else {
-                healthBar.style.stroke = '#B85C52';
+                healthBar.style.stroke = '#ef4444';
                 healthBadge.className = 'status-badge-lg badge-critical';
                 healthBadge.innerText = 'CRITICAL';
                 stateEl.innerText = data.fault_label.toUpperCase();
-                stateEl.style.color = '#B85C52';
+                stateEl.style.color = '#ef4444';
             }
 
             // Update UAV Mini-Clone Model Highlighting & Hotspots
@@ -1629,6 +2441,9 @@ DASHBOARD_HTML = """
 
             // Update Advisory Card
             updateAdvisory(data);
+
+            // Update Sensor vs Engine Diagnosis Panel
+            updateSensorDiagnosis(data);
 
             // Update Chart
             const timeLabel = new Date(data.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1674,19 +2489,19 @@ DASHBOARD_HTML = """
             [elAvionics, elRadiator, elEngine, elCyl1, elCyl2, elCyl3, elCyl4, elOil].forEach(el => {
                 if (el) el.className.baseVal = 'part-nominal';
             });
-            if (elFuel) elFuel.setAttribute('stroke', '#C47A3C');
-            if (elExhaust) elExhaust.setAttribute('stroke', '#B85C52');
-            if (elProp) elProp.setAttribute('fill', '#C47A3C');
+            if (elFuel) elFuel.setAttribute('stroke', '#38bdf8');
+            if (elExhaust) elExhaust.setAttribute('stroke', '#ef4444');
+            if (elProp) elProp.setAttribute('fill', '#38bdf8');
             [1, 2, 3, 4].forEach(i => {
                 const m = document.getElementById(`svg-mount-${i}`);
-                if (m) m.setAttribute('fill', '#918B80');
+                if (m) m.setAttribute('fill', '#64748b');
             });
 
             if (scenario === 'Normal' || health > 90) {
                 elReticle.style.display = 'none';
-                dotEl.style.color = '#4F8068';
+                dotEl.style.color = '#10b981';
                 titleEl.innerText = 'ALL PROPULSION SUBSYSTEMS NOMINAL';
-                titleEl.style.color = '#4F8068';
+                titleEl.style.color = '#10b981';
                 partEl.innerText = 'PIN: PROPULSION BAY [OK]';
             } 
             else if (scenario === 'Overheating') {
@@ -1699,20 +2514,20 @@ DASHBOARD_HTML = """
                 if (elCyl4) elCyl4.className.baseVal = 'part-thermal';
                 
                 positionReticle(280, 135);
-                dotEl.style.color = '#B85C52';
+                dotEl.style.color = '#ef4444';
                 titleEl.innerText = `THERMAL ANOMALY: CHT ${data.cht_c.toFixed(1)}°C / OIL ${data.oil_temperature_c.toFixed(1)}°C`;
-                titleEl.style.color = '#C47A3C';
+                titleEl.style.color = '#ff5722';
                 partEl.innerText = 'HOTSPOT: CYLINDER HEADS & COOLING RADIATOR';
             } 
             else if (scenario === 'Injector_Degradation') {
                 // Highlight Fuel Delivery Rail & Injector Nozzles
-                if (elFuel) elFuel.setAttribute('stroke', '#B88A45');
+                if (elFuel) elFuel.setAttribute('stroke', '#f59e0b');
                 if (elEngine) elEngine.className.baseVal = 'part-warning';
                 
                 positionReticle(305, 130);
-                dotEl.style.color = '#B88A45';
+                dotEl.style.color = '#f59e0b';
                 titleEl.innerText = `COMBUSTION DEGRADATION: FUEL FLOW ${data.fuel_flow_lh.toFixed(1)} L/H`;
-                titleEl.style.color = '#B88A45';
+                titleEl.style.color = '#f59e0b';
                 partEl.innerText = 'HOTSPOT: HIGH-PRESSURE FUEL INJECTION RAIL';
             } 
             else if (scenario === 'Lubrication') {
@@ -1721,24 +2536,24 @@ DASHBOARD_HTML = """
                 if (elEngine) elEngine.className.baseVal = 'part-warning';
                 
                 positionReticle(373, 135);
-                dotEl.style.color = '#B85C52';
+                dotEl.style.color = '#ef4444';
                 titleEl.innerText = `HYDRAULIC ANOMALY: OIL PRESSURE CRITICAL (${data.oil_pressure_bar.toFixed(2)} BAR)`;
-                titleEl.style.color = '#B85C52';
+                titleEl.style.color = '#ef4444';
                 partEl.innerText = 'HOTSPOT: LUBRICATION SUMP & OIL SCAVENGE PUMP';
             } 
             else if (scenario === 'Vibration_Fault') {
                 // Highlight Engine Mounts, Crankcase & Propeller Shaft
-                if (elProp) elProp.setAttribute('fill', '#B88A45');
+                if (elProp) elProp.setAttribute('fill', '#f59e0b');
                 if (elEngine) elEngine.className.baseVal = 'part-warning';
                 [1, 2, 3, 4].forEach(i => {
                     const m = document.getElementById(`svg-mount-${i}`);
-                    if (m) m.setAttribute('fill', '#B85C52');
+                    if (m) m.setAttribute('fill', '#ef4444');
                 });
 
                 positionReticle(350, 135);
-                dotEl.style.color = '#B88A45';
+                dotEl.style.color = '#f59e0b';
                 titleEl.innerText = `MECHANICAL ANOMALY: VIBRATION SPIKE (${data.vibration_g.toFixed(3)} g RMS)`;
-                titleEl.style.color = '#B88A45';
+                titleEl.style.color = '#f59e0b';
                 partEl.innerText = 'HOTSPOT: CRANKSHAFT & DYNAFOCAL ENGINE MOUNTS';
             } 
             else if (scenario === 'Sensor_Drift') {
@@ -1746,22 +2561,53 @@ DASHBOARD_HTML = """
                 if (elAvionics) elAvionics.className.baseVal = 'part-warning';
                 
                 positionReticle(85, 135);
-                dotEl.style.color = '#B88A45';
+                dotEl.style.color = '#f59e0b';
                 titleEl.innerText = `AVIONICS HARNESS: CHT SENSOR DRIFT DETECTED (${data.cht_c.toFixed(1)}°C)`;
-                titleEl.style.color = '#C47A3C';
+                titleEl.style.color = '#38bdf8';
                 partEl.innerText = 'HOTSPOT: NOSE AVIONICS & CHT SENSOR HARNESS';
             } 
             else if (scenario === 'Misfire') {
                 // Highlight Cylinder 1 & Exhaust Header
                 if (elCyl1) elCyl1.className.baseVal = 'part-critical';
                 if (elCyl3) elCyl3.className.baseVal = 'part-warning';
-                if (elExhaust) elExhaust.setAttribute('stroke', '#B85C52');
+                if (elExhaust) elExhaust.setAttribute('stroke', '#ff3d00');
                 
                 positionReticle(310, 120);
-                dotEl.style.color = '#B85C52';
+                dotEl.style.color = '#ef4444';
                 titleEl.innerText = `IGNITION FAULT: INTERMITTENT CYLINDER MISFIRE`;
-                titleEl.style.color = '#B85C52';
+                titleEl.style.color = '#ef4444';
                 partEl.innerText = 'HOTSPOT: CYLINDER #1 SPARK & EXHAUST RUNNER';
+            }
+            else if (scenario === 'Sensor_Fault_Temp') {
+                // SENSOR FAULT DEMO: Only avionics/sensor bay highlighted
+                if (elAvionics) elAvionics.className.baseVal = 'part-critical';
+                
+                positionReticle(85, 135);
+                dotEl.style.color = '#f59e0b';
+                titleEl.innerText = `SENSOR ISOLATION: CHT SENSOR FAULT DETECTED (${data.cht_c.toFixed(1)}°C) — ENGINE HEALTHY`;
+                titleEl.style.color = '#f59e0b';
+                partEl.innerText = 'DIAGNOSIS: ISOLATED SENSOR MALFUNCTION — NOT AN ENGINE FAULT';
+            }
+            else if (scenario === 'Engine_Failure_Multi') {
+                // ENGINE FAILURE DEMO: Multiple subsystems highlighted
+                if (elEngine) elEngine.className.baseVal = 'part-critical';
+                if (elCyl1) elCyl1.className.baseVal = 'part-critical';
+                if (elCyl2) elCyl2.className.baseVal = 'part-critical';
+                if (elCyl3) elCyl3.className.baseVal = 'part-thermal';
+                if (elCyl4) elCyl4.className.baseVal = 'part-thermal';
+                if (elRadiator) elRadiator.className.baseVal = 'part-warning';
+                if (elOil) elOil.className.baseVal = 'part-critical';
+                if (elProp) elProp.setAttribute('fill', '#ef4444');
+                [1, 2, 3, 4].forEach(i => {
+                    const m = document.getElementById(`svg-mount-${i}`);
+                    if (m) m.setAttribute('fill', '#ef4444');
+                });
+                
+                positionReticle(315, 135);
+                dotEl.style.color = '#ef4444';
+                titleEl.innerText = `ENGINE FAILURE: MULTI-SENSOR CORRELATED ANOMALY DETECTED`;
+                titleEl.style.color = '#ef4444';
+                partEl.innerText = 'DIAGNOSIS: SYSTEM-LEVEL ENGINE FAULT — MULTIPLE SUBSYSTEMS AFFECTED';
             }
         }
 
@@ -1802,7 +2648,7 @@ DASHBOARD_HTML = """
         // Tooltip handler
         function showTooltip(title, desc) {
             const tip = document.getElementById('uav-tooltip');
-            tip.innerHTML = `<span style="color: var(--accent-amber); font-weight:700;">${title}</span><br><span style="color: #918B80; font-size: 0.65rem;">${desc}</span>`;
+            tip.innerHTML = `<span style="color: var(--accent-cyan); font-weight:700;">${title}</span><br><span style="color: #94a3b8; font-size: 0.65rem;">${desc}</span>`;
             tip.style.display = 'block';
         }
 
@@ -1856,23 +2702,23 @@ DASHBOARD_HTML = """
 
             if (data.fault_label === 'Normal') {
                 card.className = 'advisory-box';
-                title.innerText = 'Propulsion Health: Nominal';
+                title.innerText = '🛡️ Propulsion Health: Nominal';
                 desc.innerText = 'All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are < 2.5%.';
                 action.innerText = 'RECOMMENDATION: Continue planned mission profile. No maintenance required.';
                 if (badge) { badge.className = 'status-badge-lg badge-optimal'; badge.innerText = 'PHM AI: OPTIMAL'; }
                 if (statConf) statConf.innerText = '99.4%';
                 if (statResidual) statResidual.innerText = '< 2.1% RMS';
                 if (statPriority) { statPriority.innerText = 'ROUTINE'; statPriority.style.color = 'var(--accent-emerald)'; }
-                if (statTrend) { statTrend.innerText = 'STABLE CRUISE'; statTrend.style.color = 'var(--accent-amber)'; }
+                if (statTrend) { statTrend.innerText = 'STABLE CRUISE'; statTrend.style.color = 'var(--accent-cyan)'; }
                 if (logText) logText.innerText = 'PHYSICS ENGINE: Telemetry parity matched across 9 sensor channels with zero divergence.';
             } else if (data.fault_label === 'Overheating') {
                 card.className = 'advisory-box critical';
-                title.innerText = 'ALERT: Engine Overheating Trend Detected';
+                title.innerText = '🔥 Alert: Engine Overheating Trend Detected';
                 desc.innerText = `CHT reached ${data.cht_c.toFixed(1)}°C and Oil Temp reached ${data.oil_temperature_c.toFixed(1)}°C. Physics residual exceeds +35°C thermal model boundary.`;
                 action.innerText = 'ACTION: Reduce cruise throttle to 55%. Plan altitude descent for enhanced ram-air cooling. Inspect radiator fins post-flight.';
                 if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'PHM AI: CRITICAL ALERT'; }
                 setSubsystem(valThermal, progThermal, 28, '28% CRITICAL HEAT', 'var(--accent-rose)');
-                setSubsystem(valOil, progOil, 54, '54% HIGH TEMP', 'var(--accent-warn)');
+                setSubsystem(valOil, progOil, 54, '54% HIGH TEMP', 'var(--accent-amber)');
                 if (statConf) statConf.innerText = '98.9%';
                 if (statResidual) statResidual.innerText = '+38.4°C CHT DIV';
                 if (statPriority) { statPriority.innerText = 'URGENT (P1)'; statPriority.style.color = 'var(--accent-rose)'; }
@@ -1880,24 +2726,24 @@ DASHBOARD_HTML = """
                 if (logText) logText.innerText = `THERMAL ANOMALY: Cylinder jacket heat transfer deficit detected (${data.cht_c.toFixed(1)}°C).`;
             } else if (data.fault_label === 'Injector_Degradation') {
                 card.className = 'advisory-box warning';
-                title.innerText = 'WARNING: Fuel Injector Delivery Degradation';
+                title.innerText = '⚙️ Warning: Fuel Injector Delivery Degradation';
                 desc.innerText = `Fuel flow elevated (${data.fuel_flow_lh.toFixed(1)} L/h) with abnormal EGT and RPM fluctuations. Flow coefficient dropped 18%.`;
                 action.innerText = 'ACTION: Monitor fuel consumption vs endurance margin. Schedule injector ultrasonic cleaning at next turnaround.';
                 if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'PHM AI: DEGRADED'; }
-                setSubsystem(valFuel, progFuel, 42, '42% FLOW DEVIATION', 'var(--accent-warn)');
+                setSubsystem(valFuel, progFuel, 42, '42% FLOW DEVIATION', 'var(--accent-amber)');
                 if (statConf) statConf.innerText = '96.8%';
                 if (statResidual) statResidual.innerText = '+4.6 L/H BIAS';
-                if (statPriority) { statPriority.innerText = 'ACTION REQ'; statPriority.style.color = 'var(--accent-warn)'; }
-                if (statTrend) { statTrend.innerText = 'COMBUSTION IMBALANCE'; statTrend.style.color = 'var(--accent-warn)'; }
+                if (statPriority) { statPriority.innerText = 'ACTION REQ'; statPriority.style.color = 'var(--accent-amber)'; }
+                if (statTrend) { statTrend.innerText = 'COMBUSTION IMBALANCE'; statTrend.style.color = 'var(--accent-amber)'; }
                 if (logText) logText.innerText = `COMBUSTION DIAGNOSTIC: Fuel mass flow residual divergence on rail (+${(data.fuel_flow_lh - 18.5).toFixed(1)} L/h).`;
             } else if (data.fault_label === 'Lubrication') {
                 card.className = 'advisory-box critical';
-                title.innerText = 'URGENT: Lubrication Starvation & Pressure Loss';
+                title.innerText = '🛢️ Urgent: Lubrication Starvation & Pressure Loss';
                 desc.innerText = `Oil pressure dropped to ${data.oil_pressure_bar.toFixed(2)} bar while friction vibration is climbing (${data.vibration_g.toFixed(3)} g).`;
                 action.innerText = 'CRITICAL ADVISORY: Potential bearing wear/pump cavitation. Abort mission if pressure drops below 3.0 bar. Divert to nearest recovery base.';
                 if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'PHM AI: HYDRAULIC ALARM'; }
                 setSubsystem(valOil, progOil, 18, '18% STARVATION', 'var(--accent-rose)');
-                setSubsystem(valVib, progVib, 58, '58% FRICTION RISE', 'var(--accent-warn)');
+                setSubsystem(valVib, progVib, 58, '58% FRICTION RISE', 'var(--accent-amber)');
                 if (statConf) statConf.innerText = '99.5%';
                 if (statResidual) statResidual.innerText = '-1.85 BAR DEFICIT';
                 if (statPriority) { statPriority.innerText = 'EMERGENCY'; statPriority.style.color = 'var(--accent-rose)'; }
@@ -1905,42 +2751,159 @@ DASHBOARD_HTML = """
                 if (logText) logText.innerText = `HYDRAULIC FAILURE: Main gallery oil pressure collapsed below 3.5 bar margin.`;
             } else if (data.fault_label === 'Vibration_Fault') {
                 card.className = 'advisory-box warning';
-                title.innerText = 'MECHANICAL ANOMALY: High Vibration Signature';
+                title.innerText = '〰️ Mechanical Anomaly: High Vibration Signature';
                 desc.innerText = `Spectral energy spikes detected in 1X-2X crankshaft harmonics (${data.vibration_g.toFixed(3)} g RMS). Probable propeller imbalance or mount looseness.`;
                 action.innerText = 'ACTION: Avoid resonant RPM bands. Restrict maximum continuous power. Perform mechanical mount inspection.';
                 if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'PHM AI: VIBRATION SPIKE'; }
                 setSubsystem(valVib, progVib, 25, '25% HARMONIC SPIKE', 'var(--accent-rose)');
                 if (statConf) statConf.innerText = '97.6%';
                 if (statResidual) statResidual.innerText = `+${(data.vibration_g - 0.2).toFixed(3)}g RMS`;
-                if (statPriority) { statPriority.innerText = 'INSPECTION'; statPriority.style.color = 'var(--accent-warn)'; }
-                if (statTrend) { statTrend.innerText = 'DYNAMIC UNBALANCE'; statTrend.style.color = 'var(--accent-warn)'; }
+                if (statPriority) { statPriority.innerText = 'INSPECTION'; statPriority.style.color = 'var(--accent-amber)'; }
+                if (statTrend) { statTrend.innerText = 'DYNAMIC UNBALANCE'; statTrend.style.color = 'var(--accent-amber)'; }
                 if (logText) logText.innerText = `ROTORDYNAMICS: 1X crankshaft fundamental frequency vibration spike detected.`;
             } else if (data.fault_label === 'Sensor_Drift') {
                 card.className = 'advisory-box warning';
-                title.innerText = 'AVIONICS ALERT: CHT Sensor Drift / Calibration Error';
+                title.innerText = '📡 Avionics Alert: CHT Sensor Drift / Calibration Error';
                 desc.innerText = `CHT reading (${data.cht_c.toFixed(1)}°C) diverges from physics-informed estimation, while EGT & Oil Temp remain normal. Engine is healthy.`;
                 action.innerText = 'INTELLIGENT DIAGNOSIS: Sensor failure detected via cross-sensor fusion. Engine safe to operate. Replace CHT probe on return.';
                 if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'PHM AI: SENSOR FAULT'; }
-                setSubsystem(valAvionics, progAvionics, 35, '35% SENSOR BIAS', 'var(--accent-warn)');
+                setSubsystem(valAvionics, progAvionics, 35, '35% SENSOR BIAS', 'var(--accent-amber)');
                 if (statConf) statConf.innerText = '99.8%';
                 if (statResidual) statResidual.innerText = `+${(data.cht_c - 150).toFixed(1)}°C DRIFT`;
-                if (statPriority) { statPriority.innerText = 'POST-FLIGHT'; statPriority.style.color = 'var(--accent-amber)'; }
-                if (statTrend) { statTrend.innerText = 'SENSOR BIAS ONLY'; statTrend.style.color = 'var(--accent-amber)'; }
+                if (statPriority) { statPriority.innerText = 'POST-FLIGHT'; statPriority.style.color = 'var(--accent-cyan)'; }
+                if (statTrend) { statTrend.innerText = 'SENSOR BIAS ONLY'; statTrend.style.color = 'var(--accent-cyan)'; }
                 if (logText) logText.innerText = `ANOMALY ISOLATION: Digital Twin neural estimator verified mechanical engine core is 100% healthy.`;
             } else if (data.fault_label === 'Misfire') {
                 card.className = 'advisory-box critical';
-                title.innerText = 'COMBUSTION INSTABILITY: Intermittent Cylinder Misfire';
+                title.innerText = '💥 Combustion Instability: Intermittent Cylinder Misfire';
                 desc.innerText = `Combustion irregularity detected with sudden RPM drops and unburnt exhaust gas temperature dips.`;
                 action.innerText = 'ACTION: Check ignition coil & spark plug telemetry. Adjust mixture trim. If misfires persist, abort climb.';
                 if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'PHM AI: MISFIRE FAULT'; }
                 setSubsystem(valFuel, progFuel, 22, '22% MISFIRE UNSTABLE', 'var(--accent-rose)');
-                setSubsystem(valVib, progVib, 45, '45% COMBUSTION ROUGH', 'var(--accent-warn)');
+                setSubsystem(valVib, progVib, 45, '45% COMBUSTION ROUGH', 'var(--accent-amber)');
                 if (statConf) statConf.innerText = '98.5%';
                 if (statResidual) statResidual.innerText = 'ΔRPM -280 / ΔEGT -50°';
                 if (statPriority) { statPriority.innerText = 'URGENT'; statPriority.style.color = 'var(--accent-rose)'; }
                 if (statTrend) { statTrend.innerText = 'CYLINDER #1 MISFIRE'; statTrend.style.color = 'var(--accent-rose)'; }
                 if (logText) logText.innerText = `IGNITION FAULT: Power stroke torque pulsation detected on Cylinder #1.`;
             }
+            else if (data.fault_label === 'Sensor_Fault_Temp') {
+                card.className = 'advisory-box warning';
+                title.innerText = 'Sensor Isolation: CHT Sensor Fault Detected';
+                desc.innerText = `CHT sensor reading (${data.cht_c.toFixed(1)} C) is physically impossible given normal RPM, EGT, oil pressure, and vibration. Cross-sensor ML prediction confirms engine is healthy - sensor malfunction suspected.`;
+                action.innerText = 'INTELLIGENT DIAGNOSIS: This is a SENSOR fault, NOT an engine fault. Engine safe to operate. Schedule CHT probe replacement.';
+                if (badge) { badge.className = 'status-badge-lg badge-warning'; badge.innerText = 'SENSOR ISOLATED'; }
+                setSubsystem(valAvionics, progAvionics, 15, '15% SENSOR FAULT', 'var(--accent-rose)');
+                if (statConf) statConf.innerText = '99.1%';
+                if (statResidual) statResidual.innerText = `+${(data.cht_c - 150).toFixed(0)} C SENSOR BIAS`;
+                if (statPriority) { statPriority.innerText = 'POST-FLIGHT'; statPriority.style.color = 'var(--accent-cyan)'; }
+                if (statTrend) { statTrend.innerText = 'SENSOR FAULT ONLY'; statTrend.style.color = 'var(--accent-cyan)'; }
+                if (logText) logText.innerText = `SENSOR ISOLATION: Cross-sensor ML model confirmed CHT reading is inconsistent with other healthy parameters.`;
+            }
+            else if (data.fault_label === 'Engine_Failure_Multi') {
+                card.className = 'advisory-box critical';
+                title.innerText = 'Critical: Multi-Sensor Engine Failure Detected';
+                desc.innerText = `RPM (${data.rpm.toFixed(0)}), CHT (${data.cht_c.toFixed(1)} C), EGT (${data.egt_c.toFixed(1)} C), Oil Pressure (${data.oil_pressure_bar.toFixed(2)} bar), and Vibration (${data.vibration_g.toFixed(3)} g) are simultaneously deviating from their learned cross-sensor relationships. This is a genuine engine fault, not a sensor error.`;
+                action.innerText = 'CRITICAL: Multiple correlated sensor anomalies confirm ENGINE-LEVEL failure. Initiate emergency procedures. Divert immediately.';
+                if (badge) { badge.className = 'status-badge-lg badge-critical'; badge.innerText = 'ENGINE FAILURE'; }
+                setSubsystem(valThermal, progThermal, 18, '18% THERMAL CRISIS', 'var(--accent-rose)');
+                setSubsystem(valFuel, progFuel, 25, '25% FLOW ABNORMAL', 'var(--accent-rose)');
+                setSubsystem(valOil, progOil, 12, '12% OIL COLLAPSE', 'var(--accent-rose)');
+                setSubsystem(valVib, progVib, 20, '20% MECH FAILURE', 'var(--accent-rose)');
+                if (statConf) statConf.innerText = '99.7%';
+                if (statResidual) statResidual.innerText = 'MULTI-SENSOR DIVERGENCE';
+                if (statPriority) { statPriority.innerText = 'EMERGENCY'; statPriority.style.color = 'var(--accent-rose)'; }
+                if (statTrend) { statTrend.innerText = 'ENGINE FAILURE'; statTrend.style.color = 'var(--accent-rose)'; }
+                if (logText) logText.innerText = `ENGINE DIAGNOSIS: Cross-sensor ML analysis confirms correlated multi-parameter degradation - genuine engine fault.`;
+            }
+
+            // ML Anomaly Pipeline overrides/enhancements
+            const preventionCard = document.getElementById('prevention-card');
+            const preventionAction = document.getElementById('prevention-action');
+            if (data.prevention && data.prevention !== "Continue standard scheduled maintenance.") {
+                preventionCard.style.display = 'block';
+                preventionAction.innerText = data.prevention;
+            } else {
+                preventionCard.style.display = 'none';
+            }
+            
+            // Highlight anomaly score if available
+            if (data.anomaly_score !== undefined && statConf) {
+                if (data.anomaly_score < 0) {
+                    statConf.innerText = `Score: ${data.anomaly_score.toFixed(3)}`;
+                    statConf.style.color = 'var(--accent-rose)';
+                } else {
+                    statConf.style.color = 'var(--text-primary)';
+                }
+            }
+        }
+
+        // =========================================================
+        // SENSOR vs ENGINE DIAGNOSIS UI UPDATE
+        // =========================================================
+        const SENSOR_DISPLAY_MAP = {
+            'rpm': 'RPM', 'cht_c': 'CHT (Temp)', 'egt_c': 'EGT',
+            'oil_pressure_bar': 'Oil Pressure', 'oil_temperature_c': 'Oil Temp',
+            'fuel_flow_lh': 'Fuel Flow', 'vibration_g': 'Vibration'
+        };
+
+        function updateSensorDiagnosis(data) {
+            const diag = data.sensor_diagnosis;
+            if (!diag) return;
+
+            // Badge
+            const badge = document.getElementById('diag-diagnosis-badge');
+            if (badge) {
+                const type = diag.diagnosis_type || 'NORMAL';
+                badge.innerText = type.replace(/_/g, ' ');
+                badge.className = 'diag-diagnosis-badge';
+                if (type === 'NORMAL') badge.classList.add('diag-badge-normal');
+                else if (type === 'POSSIBLE_SENSOR_FAILURE') badge.classList.add('diag-badge-sensor');
+                else if (type === 'POSSIBLE_ENGINE_FAILURE') badge.classList.add('diag-badge-engine');
+                else badge.classList.add('diag-badge-unknown');
+            }
+
+            // Suspected sensor
+            const suspRow = document.getElementById('diag-suspected-row');
+            const suspVal = document.getElementById('diag-suspected-val');
+            if (suspRow && suspVal) {
+                if (diag.suspected_sensor) {
+                    suspRow.style.display = 'flex';
+                    suspVal.innerText = SENSOR_DISPLAY_MAP[diag.suspected_sensor] || diag.suspected_sensor;
+                } else {
+                    suspRow.style.display = 'none';
+                }
+            }
+
+            // Confidence scores
+            const sConf = document.getElementById('diag-sensor-conf');
+            const eConf = document.getElementById('diag-engine-conf');
+            const pers = document.getElementById('diag-persistence');
+            if (sConf) sConf.innerText = (diag.sensor_fault_confidence * 100).toFixed(0) + '%';
+            if (eConf) eConf.innerText = (diag.engine_fault_confidence * 100).toFixed(0) + '%';
+            if (pers) pers.innerText = diag.persistence_count + '/5';
+
+            // Sensor anomaly bars
+            const scores = diag.sensor_scores || {};
+            const sensors = ['rpm', 'cht_c', 'egt_c', 'oil_pressure_bar', 'oil_temperature_c', 'fuel_flow_lh', 'vibration_g'];
+            sensors.forEach(s => {
+                const score = scores[s] || 0;
+                const barEl = document.getElementById('sbar-' + s);
+                const scoreEl = document.getElementById('sscore-' + s);
+                if (barEl) {
+                    // Scale: 0-10σ → 0-100%
+                    const pct = Math.min(score / 10 * 100, 100);
+                    barEl.style.width = Math.max(pct, 2) + '%';
+                    barEl.className = 'sensor-bar-fill';
+                    if (score > 3.0) barEl.classList.add('critical');
+                    else if (score > 1.5) barEl.classList.add('elevated');
+                }
+                if (scoreEl) scoreEl.innerText = score.toFixed(1);
+            });
+
+            // Evidence
+            const evEl = document.getElementById('diag-evidence');
+            if (evEl && diag.evidence) evEl.innerText = diag.evidence;
         }
 
         function injectScenario(scenarioName) {
@@ -1961,9 +2924,364 @@ DASHBOARD_HTML = """
             }
         }
 
-        window.onload = () => {
+        // =========================================================
+        // REMAINING TIME — RUL PROGNOSTICS VIEW
+        // =========================================================
+        let rulWs = null;
+        let rulChart = null;
+        let rulViewActive = false;
+        const rulActualData = [];
+        const rulPredictedData = [];
+        const rulLabels = [];
+
+        function toggleRulView() {
+            rulViewActive = !rulViewActive;
+            const mainDash = document.getElementById('main-dashboard');
+            const rulPanel = document.getElementById('rul-panel');
+            const btn = document.getElementById('btn-rul-view');
+
+            if (rulViewActive) {
+                mainDash.classList.add('hidden');
+                rulPanel.classList.add('visible');
+                btn.classList.add('active');
+                if (!rulChart) initRulChart();
+                if (!rulWs || rulWs.readyState !== WebSocket.OPEN) connectRulWebSocket();
+            } else {
+                mainDash.classList.remove('hidden');
+                rulPanel.classList.remove('visible');
+                btn.classList.remove('active');
+            }
+        }
+
+        function initRulChart() {
+            const ctx = document.getElementById('rulChart').getContext('2d');
+            rulChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rulLabels,
+                    datasets: [
+                        {
+                            label: 'Actual RUL',
+                            data: rulActualData,
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                            tension: 0.3,
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            fill: true
+                        },
+                        {
+                            label: 'LSTM Predicted RUL',
+                            data: rulPredictedData,
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            tension: 0.3,
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            borderDash: [6, 3],
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Cycle', color: '#64748b' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 20 }
+                        },
+                        y: {
+                            title: { display: true, text: 'RUL (Cycles)', color: '#64748b' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } },
+                            min: 0
+                        }
+                    }
+                }
+            });
+        }
+
+        function connectRulWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/rul`;
+
+            rulWs = new WebSocket(wsUrl);
+
+            rulWs.onopen = () => {
+                document.getElementById('rul-log-text').innerText = 'Connected to RUL Prognostics stream.';
+                // Request engine 1 by default
+                rulWs.send(JSON.stringify({ unit: 1 }));
+            };
+
+            rulWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'engine_list') {
+                    populateEngineSelector(data.units);
+                    return;
+                }
+
+                if (data.type === 'reset') {
+                    rulActualData.length = 0;
+                    rulPredictedData.length = 0;
+                    rulLabels.length = 0;
+                    if (rulChart) rulChart.update();
+                    document.getElementById('rul-big-val').innerText = '--';
+                    document.getElementById('rul-m-predicted').innerText = '--';
+                    document.getElementById('rul-m-actual').innerText = '--';
+                    document.getElementById('rul-m-error').innerText = '--';
+                    document.getElementById('rul-log-text').innerText = `Loading engine unit ${data.unit}...`;
+                    return;
+                }
+
+                // RUL tick data
+                const cycle = data.cycle;
+                const actualRul = data.actual_rul;
+                const predictedRul = data.predicted_rul;
+                const absError = Math.abs(actualRul - predictedRul).toFixed(1);
+
+                rulLabels.push(cycle);
+                rulActualData.push(actualRul);
+                rulPredictedData.push(predictedRul !== null ? predictedRul : null);
+
+                // Keep max 300 points
+                if (rulLabels.length > 300) {
+                    rulLabels.shift();
+                    rulActualData.shift();
+                    rulPredictedData.shift();
+                }
+
+                if (rulChart) rulChart.update();
+
+                document.getElementById('rul-cycle-counter').innerText = `CYCLE: ${cycle}`;
+                document.getElementById('rul-big-val').innerText = predictedRul !== null ? predictedRul.toFixed(0) : '--';
+                document.getElementById('rul-m-predicted').innerText = predictedRul !== null ? predictedRul.toFixed(1) : '--';
+                document.getElementById('rul-m-actual').innerText = actualRul.toFixed(1);
+                document.getElementById('rul-m-error').innerText = predictedRul !== null ? absError : '--';
+
+                // Update status badge color
+                const badge = document.getElementById('rul-status-badge');
+                if (predictedRul !== null && predictedRul < 30) {
+                    badge.style.background = 'rgba(239, 68, 68, 0.2)';
+                    badge.style.color = 'var(--accent-rose)';
+                    badge.style.borderColor = 'var(--accent-rose)';
+                    badge.innerText = 'CRITICAL RUL';
+                } else if (predictedRul !== null && predictedRul < 60) {
+                    badge.style.background = 'rgba(245, 158, 11, 0.2)';
+                    badge.style.color = 'var(--accent-amber)';
+                    badge.style.borderColor = 'var(--accent-amber)';
+                    badge.innerText = 'LOW RUL';
+                } else {
+                    badge.style.background = 'rgba(168, 85, 247, 0.2)';
+                    badge.style.color = 'var(--accent-purple)';
+                    badge.style.borderColor = 'var(--accent-purple)';
+                    badge.innerText = 'LSTM AI';
+                }
+
+                document.getElementById('rul-log-text').innerText = `Cycle ${cycle} | Actual: ${actualRul.toFixed(0)} | Pred: ${predictedRul !== null ? predictedRul.toFixed(1) : 'buffering'} | Err: ${predictedRul !== null ? absError : '--'}`;
+            };
+
+            rulWs.onclose = () => {
+                document.getElementById('rul-log-text').innerText = 'RUL stream disconnected. Reconnecting...';
+                setTimeout(connectRulWebSocket, 3000);
+            };
+        }
+
+        function populateEngineSelector(units) {
+            const container = document.getElementById('rul-engine-selector');
+            container.innerHTML = '';
+            units.forEach(u => {
+                const btn = document.createElement('button');
+                btn.className = 'rul-engine-btn' + (u === 1 ? ' active' : '');
+                btn.innerText = `E${u}`;
+                btn.onclick = () => selectRulEngine(u);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectRulEngine(unitId) {
+            document.querySelectorAll('.rul-engine-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (rulWs && rulWs.readyState === WebSocket.OPEN) {
+                rulWs.send(JSON.stringify({ unit: unitId }));
+            }
+        }
+
+        // ===== SUPABASE AUTH INTEGRATION =====
+        // *** REPLACE THESE WITH YOUR SUPABASE PROJECT CREDENTIALS ***
+        const SUPABASE_URL = '{{SUPABASE_URL}}';      // Injected from .env
+        const SUPABASE_ANON_KEY = '{{SUPABASE_ANON_KEY}}';    // Injected from .env
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let isSignUpMode = false;
+
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById('auth-title').textContent = isSignUpMode ? 'Create Account' : 'Sign In to GCS';
+            document.getElementById('auth-submit-btn').textContent = isSignUpMode ? 'CREATE ACCOUNT' : 'SIGN IN';
+            document.getElementById('auth-toggle-text').textContent = isSignUpMode ? 'Already have an account?' : "Don't have an account?";
+            document.getElementById('auth-toggle-link').textContent = isSignUpMode ? 'Sign In' : 'Sign Up';
+            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-success').style.display = 'none';
+        }
+
+        function showAuthError(msg) {
+            const el = document.getElementById('auth-error');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('auth-success').style.display = 'none';
+        }
+
+        function showAuthSuccess(msg) {
+            const el = document.getElementById('auth-success');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        function showDashboard(user) {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-header').classList.remove('app-hidden');
+            document.getElementById('app-main').classList.remove('app-hidden');
+            document.getElementById('auth-user-email').textContent = user.email || 'Operator';
             initChart();
             connectWebSocket();
+        }
+
+        function showAuthScreen() {
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('app-header').classList.add('app-hidden');
+            document.getElementById('app-main').classList.add('app-hidden');
+            // Disconnect WebSockets if they exist
+            if (ws) { ws.close(); ws = null; }
+            if (typeof rulWs !== 'undefined' && rulWs) { rulWs.close(); rulWs = null; }
+        }
+
+        async function handleLogout() {
+            await supabaseClient.auth.signOut();
+            showAuthScreen();
+        }
+
+        async function handleGoogleSignIn() {
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin
+                }
+            });
+            if (error) {
+                showAuthError(error.message || 'Google sign-in failed.');
+            }
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const btn = document.getElementById('auth-submit-btn');
+
+            btn.disabled = true;
+            btn.textContent = isSignUpMode ? 'CREATING...' : 'SIGNING IN...';
+            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-success').style.display = 'none';
+
+            try {
+                if (isSignUpMode) {
+                    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                    if (error) throw error;
+                    if (data.user && data.user.identities && data.user.identities.length === 0) {
+                        showAuthError('An account with this email already exists.');
+                    } else if (data.session) {
+                        showDashboard(data.user);
+                    } else {
+                        showAuthSuccess('Account created! Check your email to confirm, then sign in.');
+                        isSignUpMode = false;
+                        toggleAuthMode(); toggleAuthMode(); // Reset to sign-in view
+                        // Actually just switch to sign in:
+                        document.getElementById('auth-title').textContent = 'Sign In to GCS';
+                        document.getElementById('auth-submit-btn').textContent = 'SIGN IN';
+                        document.getElementById('auth-toggle-text').textContent = "Don't have an account?";
+                        document.getElementById('auth-toggle-link').textContent = 'Sign Up';
+                        isSignUpMode = false;
+                    }
+                } else {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    showDashboard(data.user);
+                }
+            } catch (err) {
+                showAuthError(err.message || 'Authentication failed. Please try again.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = isSignUpMode ? 'CREATE ACCOUNT' : 'SIGN IN';
+            }
+        });
+
+        // ── Ensure a public.profiles row exists (safety net for the DB trigger) ──
+        async function ensureProfile(user) {
+            try {
+                const { error } = await supabaseClient
+                    .from('profiles')
+                    .upsert({
+                        id: user.id,
+                        full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                        email: user.email || '',
+                        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || ''
+                    }, { onConflict: 'id', ignoreDuplicates: true });
+                if (error) console.warn('[AeroTwin] Profile upsert warning:', error.message);
+            } catch (e) {
+                console.warn('[AeroTwin] Profile ensure failed:', e);
+            }
+        }
+
+        // Listen for auth state changes (handles OAuth redirect, token refresh, tab switching, etc.)
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            console.log('[AeroTwin] Auth event:', event);
+            if (event === 'SIGNED_IN' && session?.user) {
+                await ensureProfile(session.user);
+                showDashboard(session.user);
+            } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+                // Session still valid after refresh — make sure dashboard is shown
+                if (document.getElementById('auth-screen') && !document.getElementById('auth-screen').classList.contains('hidden')) {
+                    showDashboard(session.user);
+                }
+            } else if (event === 'SIGNED_OUT') {
+                showAuthScreen();
+            }
+        });
+
+        // Regression Plot Poller
+        setInterval(async () => {
+            if (document.getElementById('app-main').classList.contains('app-hidden')) return;
+            try {
+                const response = await fetch('/api/regression_plot');
+                const data = await response.json();
+                if (data.image) {
+                    document.getElementById('regression-plot').src = data.image;
+                }
+            } catch (err) {
+                console.error("Failed to fetch regression plot", err);
+            }
+        }, 5000);
+
+        // On page load: check for existing session
+        window.onload = async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session && session.user) {
+                await ensureProfile(session.user);
+                showDashboard(session.user);
+            } else {
+                showAuthScreen();
+            }
         };
     </script>
 </body>
@@ -1973,17 +3291,29 @@ DASHBOARD_HTML = """
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
     """Serves the complete interactive MALE UAV Digital Twin GCS Dashboard."""
-    return HTMLResponse(content=DASHBOARD_HTML)
+    html = DASHBOARD_HTML.replace('{{SUPABASE_URL}}', os.getenv('SUPABASE_URL', '')).replace('{{SUPABASE_ANON_KEY}}', os.getenv('SUPABASE_ANON_KEY', ''))
+    return HTMLResponse(content=html)
 
 # Global simulation state
 simulation_state = {
     "is_running": True,  # Auto-start for convenience
     "scenario": "Normal",
+    "selected_unit": 1,
     "tick": 0,
     "throttle": 75.0,
     "altitude": 15000.0,
     "ambient_temp": 15.0
 }
+
+# Predictive Maintenance State
+anomaly_detector = AeroTwinAnomalyDetector(contamination=0.05)
+sensor_diagnosis_engine = SensorDiagnosisEngine(
+    sensor_anomaly_threshold=3.0,
+    engine_failure_min_sensors=3,
+    persistence_window=5,
+    model_path="models/sensor_cross_models.pkl"
+)
+recent_telemetry_buffer = []  # Store recent telemetry for regression plot
 
 class ConnectionManager:
     def __init__(self):
@@ -2066,6 +3396,28 @@ def generate_live_data_tick(tick: int, scenario: str):
         health_index -= misfire_severity * 45
         fault_label = "Misfire"
 
+    # --- NEW: Sensor Fault Isolation Demo ---
+    elif scenario == "Sensor_Fault_Temp" and tick > 3:
+        # Only CHT sensor goes extreme; all other params stay normal
+        # This simulates a faulty temperature sensor, NOT an engine problem
+        cht = 350.0 + np.random.normal(0, 5)  # [DEMO] Injected sensor fault
+        health_index -= 5  # Mild health impact from suspicious reading
+        fault_label = "Sensor_Fault_Temp"
+
+    # --- NEW: Multi-Sensor Engine Failure Demo ---
+    elif scenario == "Engine_Failure_Multi" and tick > 3:
+        # Multiple sensors degrade simultaneously — genuine engine fault
+        engine_deg = degradation
+        rpm -= engine_deg * 700
+        cht += engine_deg * 60
+        egt += engine_deg * 120
+        oil_pressure -= engine_deg * 1.8
+        oil_temperature += engine_deg * 35
+        vibration += engine_deg * 0.7
+        fuel_flow += engine_deg * 7
+        health_index -= engine_deg * 55
+        fault_label = "Engine_Failure_Multi"
+
     data = {
         "timestamp": datetime.now().isoformat(),
         "engine_id": "ENG_001",
@@ -2102,6 +3454,8 @@ async def websocket_telemetry(websocket: WebSocket):
                 if "scenario" in cmd:
                     simulation_state["scenario"] = cmd["scenario"]
                     simulation_state["tick"] = 0
+                    # Reset sensor diagnosis persistence on scenario change
+                    sensor_diagnosis_engine.reset_persistence()
                     print(f"*** Injected scenario: {cmd['scenario']} ***")
                 if "is_running" in cmd:
                     simulation_state["is_running"] = cmd["is_running"]
@@ -2115,12 +3469,243 @@ async def simulation_loop():
     while True:
         if simulation_state["is_running"] and len(manager.active_connections) > 0:
             data = generate_live_data_tick(simulation_state["tick"], simulation_state["scenario"])
+            
+            # --- Predictive Maintenance Pipeline ---
+            is_anomaly, score = anomaly_detector.detect(data)
+            fault_info = anomaly_detector.infer_fault(data, is_anomaly, score)
+            data.update(fault_info)
+            data["anomaly_score"] = score
+            
+            # --- Sensor vs Engine Diagnosis Pipeline ---
+            diag_result = sensor_diagnosis_engine.diagnose(
+                data,
+                is_isolation_forest_anomaly=is_anomaly,
+                isolation_forest_score=score
+            )
+            data["sensor_diagnosis"] = diag_result
+            
+            # If sensor failure is suspected, override treatment recommendation
+            if diag_result["diagnosis_type"] == "POSSIBLE_SENSOR_FAILURE" and diag_result["suspected_sensor"]:
+                sensor_name = diag_result["suspected_sensor"]
+                data["prevention"] = (
+                    f"SENSOR DIAGNOSIS: Possible {sensor_name} sensor malfunction detected. "
+                    f"Check sensor wiring, calibration, and connector integrity. "
+                    f"Replace sensor if fault persists. Engine core appears healthy."
+                )
+            elif diag_result["diagnosis_type"] == "POSSIBLE_ENGINE_FAILURE":
+                data["prevention"] = (
+                    f"ENGINE DIAGNOSIS: Multiple sensor anomalies detected simultaneously. "
+                    f"Affected: {', '.join(diag_result['affected_sensors'])}. "
+                    f"Proceed with engine fault prediction and preventive maintenance protocol."
+                )
+            
+            # Log anomaly to Supabase if it's not normal
+            if supabase_client and fault_info["status"] != "Normal":
+                anomaly_record = {
+                    "engine_id": "Engine-1",
+                    "anomaly_score": float(score),
+                    "severity": fault_info["severity"],
+                    "fault_type": fault_info["fault"],
+                    "evidence": fault_info["evidence"],
+                    "treatment_action": fault_info["treatment"],
+                    "prevention_action": fault_info["prevention"],
+                    "diagnosis_type": diag_result["diagnosis_type"],
+                    "diagnosis_confidence": max(
+                        diag_result["sensor_fault_confidence"],
+                        diag_result["engine_fault_confidence"]
+                    ),
+                    "suspected_sensor": diag_result.get("suspected_sensor"),
+                    "affected_sensors": json.dumps(diag_result.get("affected_sensors", [])),
+                    "sensor_anomaly_scores": json.dumps(diag_result.get("sensor_scores", {}))
+                }
+                # Run in background to prevent blocking the WebSocket loop
+                def push_to_supabase(record):
+                    try:
+                        supabase_client.table("telemetry_anomalies").insert(record).execute()
+                    except Exception as e:
+                        print(f"[Supabase] Failed to log anomaly: {e}")
+                
+                asyncio.create_task(asyncio.to_thread(push_to_supabase, anomaly_record))
+            
+            # Buffer for regression plot
+            recent_telemetry_buffer.append(data)
+            if len(recent_telemetry_buffer) > 100:
+                recent_telemetry_buffer.pop(0)
+            # ---------------------------------------
+
             await manager.broadcast(json.dumps(data))
             simulation_state["tick"] += 1
         await asyncio.sleep(1.0)
 
+@app.get("/api/regression_plot")
+async def get_regression_plot():
+    """Generates a regression plot from recent telemetry buffer and returns it as a base64 image."""
+    if len(recent_telemetry_buffer) < 10:
+        return {"image": None}
+
+    # Prepare data (CHT vs RPM)
+    df = pd.DataFrame(recent_telemetry_buffer)
+    if 'rpm' not in df or 'cht_c' not in df:
+        return {"image": None}
+        
+    x = df['rpm']
+    y = df['cht_c']
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    fig.patch.set_facecolor('#0e1526')
+    ax.set_facecolor('#070b14')
+
+    ax.scatter(x, y, color='#38bdf8', alpha=0.6, label="Telemetry Points")
+    
+    # Regression line
+    if len(x) > 1:
+        m, b = np.polyfit(x, y, 1)
+        ax.plot(x, m*x + b, color='#ef4444', linewidth=2, label="Trend (Best Fit)")
+
+    ax.set_xlabel("Engine RPM", color='#94a3b8')
+    ax.set_ylabel("CHT (°C)", color='#94a3b8')
+    ax.set_title("Engine Temperature vs RPM Analysis", color='#f8fafc')
+    ax.tick_params(colors='#64748b')
+    ax.spines['bottom'].set_color('#1e293b')
+    ax.spines['top'].set_color('#1e293b')
+    ax.spines['right'].set_color('#1e293b')
+    ax.spines['left'].set_color('#1e293b')
+    ax.legend(facecolor='#070b14', edgecolor='#1e293b', labelcolor='#94a3b8')
+
+    plt.tight_layout()
+    
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=100)
+    plt.close(fig)
+    buf.seek(0)
+    
+    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    return {"image": f"data:image/png;base64,{img_base64}"}
+
+# ================================================================
+# REMAINING TIME — /ws/rul WebSocket Endpoint
+# ================================================================
+WINDOW_SIZE = 30
+
+@app.websocket("/ws/rul")
+async def websocket_rul(websocket: WebSocket):
+    """WebSocket endpoint for CMAPSS RUL prognostics streaming."""
+    await websocket.accept()
+    print("RUL client connected.")
+
+    # Send list of available engine units
+    if test_df is not None:
+        units = sorted(test_df["unit"].unique().tolist())
+        await websocket.send_text(json.dumps({"type": "engine_list", "units": units}))
+    else:
+        await websocket.send_text(json.dumps({"type": "engine_list", "units": []}))
+
+    selected_unit = 1
+    cycle_idx = 0
+    streaming = False
+    unit_data = None
+    sensor_buffer = []
+
+    async def stream_engine():
+        nonlocal cycle_idx, unit_data, sensor_buffer, selected_unit, streaming
+
+        if test_df is None or rul_model is None or rul_scaler is None:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "LSTM model or CMAPSS data not loaded on server."
+            }))
+            return
+
+        # Get data for the selected unit
+        unit_data_df = test_df[test_df["unit"] == selected_unit].sort_values("cycle").reset_index(drop=True)
+        if len(unit_data_df) == 0:
+            return
+
+        # Compute actual RUL for this test engine
+        # Ground truth gives the remaining RUL after the last recorded cycle
+        unit_idx = selected_unit - 1
+        remaining_after_last = rul_ground_truth[unit_idx] if unit_idx < len(rul_ground_truth) else 0
+        max_rul = len(unit_data_df) - 1 + remaining_after_last
+
+        sensor_buffer = []
+        cycle_idx = 0
+        streaming = True
+
+        for i in range(len(unit_data_df)):
+            if not streaming:
+                break
+
+            row = unit_data_df.iloc[i]
+            cycle = int(row["cycle"])
+            actual_rul = float(max_rul - i)
+            actual_rul_clipped = min(actual_rul, 125.0)
+
+            # Get sensor values for this cycle
+            sensor_vals = row[useful_sensors].values.astype(float).reshape(1, -1)
+            scaled_vals = rul_scaler.transform(sensor_vals)
+            sensor_buffer.append(scaled_vals[0])
+
+            predicted_rul = None
+
+            # Once we have enough cycles for a window, run inference
+            if len(sensor_buffer) >= WINDOW_SIZE:
+                window = np.array(sensor_buffer[-WINDOW_SIZE:]).reshape(1, WINDOW_SIZE, len(useful_sensors))
+                pred = rul_model.predict(window, verbose=0).flatten()[0]
+                predicted_rul = float(max(pred, 0))
+
+            tick_data = {
+                "type": "rul_tick",
+                "unit": selected_unit,
+                "cycle": cycle,
+                "actual_rul": round(actual_rul_clipped, 2),
+                "predicted_rul": round(predicted_rul, 2) if predicted_rul is not None else None,
+            }
+
+            try:
+                await websocket.send_text(json.dumps(tick_data))
+            except Exception:
+                streaming = False
+                break
+
+            await asyncio.sleep(0.15)  # Stream at ~6.7 Hz for smooth visualization
+
+    try:
+        # Start streaming in background
+        stream_task = None
+
+        while True:
+            data = await websocket.receive_text()
+            try:
+                cmd = json.loads(data)
+                if "unit" in cmd:
+                    streaming = False  # Stop current stream
+                    if stream_task and not stream_task.done():
+                        stream_task.cancel()
+                        try:
+                            await stream_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+
+                    selected_unit = int(cmd["unit"])
+                    await websocket.send_text(json.dumps({"type": "reset", "unit": selected_unit}))
+                    await asyncio.sleep(0.1)
+                    stream_task = asyncio.create_task(stream_engine())
+            except Exception as e:
+                print(f"RUL WS error: {e}")
+    except WebSocketDisconnect:
+        streaming = False
+        print("RUL client disconnected.")
+
 @app.on_event("startup")
 async def startup_event():
+    # Train the IsolationForest baseline
+    anomaly_detector.train_baseline()
+    
+    # Load or train sensor diagnosis cross-prediction models
+    if not sensor_diagnosis_engine.load_models():
+        print("[SensorDiagnosis] Pre-trained models not found. Training now...")
+        sensor_diagnosis_engine.train_cross_models()
+    
     asyncio.create_task(simulation_loop())
     print("\n=======================================================")
     print("MALE UAV Live Telemetry Server Started!")
