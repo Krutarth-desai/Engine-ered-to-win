@@ -49,21 +49,37 @@ cd Engine-ered-to-win
 pip install -r requirements.txt
 ```
 
-### 4. Run the Telemetry Server
-```bash
-python live_telemetry_server.py
-```
+### 4. Run Everything in One Command (Recommended) 🚀
 
-### 5. Run the React + Next.js Frontend (Ground Control Station)
-```bash
-cd frontend
-npm install
-npm run dev
-```
+You can start both the **FastAPI Backend** and **Next.js Frontend** together and automatically launch the dashboard in your browser:
 
-### 6. Open the Dashboard
-Once the server and frontend are running, open your browser and go to:
-👉 **[http://localhost:3000](http://localhost:3000)** (Next.js GCS Frontend)
+* **Using Python:**
+  ```bash
+  python run.py
+  ```
+* **Or on Windows (One-Click):**
+  Double-click `run.bat`
+
+---
+
+### Manual Two-Terminal Startup (Alternative)
+
+If you prefer to run services in separate terminals:
+
+* **Terminal 1 (Backend):**
+  ```bash
+  python live_telemetry_server.py
+  ```
+* **Terminal 2 (Frontend):**
+  ```bash
+  cd frontend
+  npm run dev
+  ```
+
+---
+
+### 5. Open the Dashboard
+👉 **[http://localhost:3000](http://localhost:3000)** (Next.js GCS Frontend)  
 *(Backend API & WebSockets run on [http://localhost:8000](http://localhost:8000))*
 
 ---

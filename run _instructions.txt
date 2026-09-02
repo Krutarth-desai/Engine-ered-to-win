@@ -1,0 +1,33 @@
+========================================================================
+AEROTWIN: MALE UAV DIGITAL TWIN - RUN INSTRUCTIONS
+========================================================================
+
+OPTION 1: ONE-COMMAND RUNNER (RECOMMENDED)
+------------------------------------------------------------------------
+Open PowerShell or Command Prompt in this directory and run:
+
+    python run.py
+
+    OR simply double-click:
+    
+    run.bat
+
+This automatically:
+  1. Starts the Python FastAPI backend on http://localhost:8000
+  2. Starts the Next.js React frontend on http://localhost:3000
+  3. Automatically opens http://localhost:3000 in your default browser
+  4. Gracefully stops all services when you press Ctrl+C in the terminal.
+
+
+OPTION 2: MANUAL TWO-TERMINAL SETUP
+------------------------------------------------------------------------
+Terminal 1 (Backend):
+    .\venv\Scripts\activate
+    python live_telemetry_server.py
+
+Terminal 2 (Frontend):
+    cd frontend
+    npm run dev
+
+Then open http://localhost:3000 in your browser.
+========================================================================
