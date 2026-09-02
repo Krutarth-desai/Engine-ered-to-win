@@ -116,16 +116,19 @@ sensor_diagnosis_engine = SensorDiagnosisEngine(
     persistence_window=5,
     model_path="models/sensor_cross_models.pkl"
 )
+telemetry_processor = TelemetryProcessor()
 def generate_initial_buffer(count=40):
+    """Seed the regression plot buffer with realistic nominal telemetry.
+    Baselines aligned with TelemetryProcessor nominal cruise output."""
     buf = []
     base_rpm = 2450.0
     for i in range(count):
-        rpm_i = base_rpm + np.random.normal(0, 35)
+        rpm_i = base_rpm + np.random.normal(0, 12)
         cht_i = 142.0 + (rpm_i - 2450.0) * 0.038 + np.random.normal(0, 1.2)
-        egt_i = 615.0 + (rpm_i - 2450.0) * 0.095 + np.random.normal(0, 3.5)
+        egt_i = 615.0 + (rpm_i - 2450.0) * 0.095 + np.random.normal(0, 3.0)
         oil_t_i = 92.0 + (rpm_i - 2450.0) * 0.015 + np.random.normal(0, 1.0)
-        oil_p_i = 4.70 - (oil_t_i - 92.0) * 0.018 + (rpm_i - 2450.0) * 0.0015 + np.random.normal(0, 0.04)
-        fuel_i = 17.6 + (rpm_i - 2450.0) * 0.007 + np.random.normal(0, 0.25)
+        oil_p_i = 4.69 - (oil_t_i - 92.0) * 0.018 + (rpm_i - 2450.0) * 0.0015 + np.random.normal(0, 0.04)
+        fuel_i = 17.6 + (rpm_i - 2450.0) * 0.007 + np.random.normal(0, 0.2)
         vib_i = 1.42 + (rpm_i - 2450.0) * 0.00045 + np.random.normal(0, 0.02)
         buf.append({
             "timestamp": datetime.now().isoformat(),
@@ -136,9 +139,9 @@ def generate_initial_buffer(count=40):
             "oil_temperature_c": round(float(oil_t_i), 1),
             "fuel_flow_lh": round(float(fuel_i), 1),
             "vibration_g": round(float(vib_i), 3),
-            "battery_voltage_v": 28.1,
-            "injection_timing_deg": 22.0,
-            "health_index": 98.0,
+            "battery_voltage_v": 27.6,
+            "injection_timing_deg": 23.4,
+            "health_index": 96.0,
             "fault_label": "Normal"
         })
     return buf
@@ -170,16 +173,19 @@ manager = ConnectionManager()
 def generate_live_data_tick(tick: int, scenario: str):
     """Generates a single point in time telemetry tick."""
     RUL_DATA = sorted([112, 98, 69, 82, 91, 93, 91, 95, 111, 96, 97, 124, 95, 107, 83, 84, 50, 28, 87, 16, 57, 111, 113, 20, 145, 119, 66, 97, 90, 115, 8, 48, 106, 7, 11, 19, 21, 50, 142, 28, 18, 10, 59, 109, 114, 47, 135, 92, 21, 79, 114, 29, 26, 97, 137, 15, 103, 37, 114, 100, 21, 54, 72, 28, 128, 14, 77, 8, 121, 94, 118, 50, 131, 126, 113, 10, 34, 107, 63, 90, 8, 9, 137, 58, 118, 89, 116, 115, 136, 28, 38, 20, 85, 55, 128, 137, 82, 59, 117, 20, 18, 79, 106, 110, 15, 155, 6, 90, 11, 79, 6, 73, 30, 11, 37, 67, 68, 99, 22, 54, 97, 10, 142, 77, 88, 163, 126, 138, 83, 78, 75, 11, 53, 173, 63, 100, 151, 55, 48, 37, 44, 27, 18, 6, 15, 112, 131, 13, 122, 13, 98, 53, 52, 106, 103, 152, 123, 26, 178, 73, 169, 39, 39, 14, 11, 121, 86, 56, 115, 17, 148, 104, 78, 86, 98, 36, 94, 52, 91, 15, 141, 74, 146, 17, 47, 194, 21, 79, 97, 8, 9, 73, 183, 97, 73, 49, 31, 97, 9, 14, 106, 8, 8, 106, 116, 120, 61, 168, 35, 80, 9, 50, 151, 78, 91, 7, 181, 150, 106, 15, 67, 145, 180, 7, 179, 124, 82, 108, 79, 121, 120, 39, 38, 9, 167, 87, 88, 7, 51, 55, 155, 47, 81, 43, 98, 10, 92, 11, 165, 34, 115, 59, 99, 103, 108, 83, 171, 15, 9, 42, 13, 41, 88, 14, 155, 188, 96, 82, 135, 182, 36, 107, 14, 95, 142, 23, 6, 144, 35, 97, 68, 14, 67, 191, 19, 10, 158, 183, 43, 12, 148, 13, 37, 122, 80, 93, 132, 32, 103, 174, 111, 68, 192, 121, 134, 48, 85, 8, 23, 8, 6, 57, 83, 172, 101, 81, 86, 165, 73, 121, 139, 75, 151, 145, 11, 108, 14, 126, 61, 85, 8, 101, 153, 89, 190, 12, 62, 134, 101, 121, 167, 17, 161, 181, 16, 152, 148, 56, 111, 23, 84, 12, 43, 48, 122, 191, 56, 131, 51, 44, 51, 27, 120, 101, 99, 71, 55, 55, 66, 77, 115, 115, 31, 108, 56, 136, 132, 85, 56, 18, 119, 78, 9, 58, 11, 88, 144, 124, 89, 79, 55, 71, 65, 87, 137, 145, 22, 8, 41, 131, 115, 128, 69, 111, 7, 137, 55, 135, 11, 78, 120, 87, 87, 55, 93, 88, 40, 49, 128, 129, 58, 117, 28, 115, 87, 92, 103, 100, 63, 35, 45, 99, 117, 45, 27, 86, 20, 18, 133, 15, 6, 145, 104, 56, 25, 68, 144, 41, 51, 81, 14, 67, 10, 127, 113, 123, 17, 8, 28], reverse=True)
-    # Base engine parameters with normal operational noise
-    rpm = np.random.normal(6100, 20)
-    cht = np.random.normal(150, 2)
-    egt = np.random.normal(700, 5)
-    oil_pressure = np.random.normal(4.3, 0.1)
-    oil_temperature = np.random.normal(95, 2)
-    fuel_flow = np.random.normal(18.5, 0.2)
-    vibration = np.random.normal(0.2, 0.02)
-    battery_voltage = np.random.normal(28.0, 0.1)
-    injection_timing = np.random.normal(22.0, 0.1)
+    # Base engine parameters aligned with TelemetryProcessor nominal cruise output.
+    # NOTE: This function is currently unused (tick_and_broadcast uses
+    # TelemetryProcessor.process_tick instead), but baselines are kept consistent
+    # to prevent future confusion.
+    rpm = np.random.normal(2450, 12)
+    cht = np.random.normal(142, 1.2)
+    egt = np.random.normal(615, 3.0)
+    oil_pressure = np.random.normal(4.69, 0.06)
+    oil_temperature = np.random.normal(92, 1.0)
+    fuel_flow = np.random.normal(17.6, 0.2)
+    vibration = np.random.normal(1.42, 0.02)
+    battery_voltage = np.random.normal(27.6, 0.1)
+    injection_timing = np.random.normal(23.4, 0.12)
     
     health_index = 100.0
     fault_label = "Normal"

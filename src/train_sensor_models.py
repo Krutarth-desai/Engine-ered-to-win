@@ -71,9 +71,9 @@ def main():
     # Test with normal data
     print("  --- Normal Operation Test ---")
     normal_point = {
-        'rpm': 6100.0, 'cht_c': 150.0, 'egt_c': 700.0,
-        'oil_pressure_bar': 4.3, 'oil_temperature_c': 95.0,
-        'fuel_flow_lh': 18.5, 'vibration_g': 0.2
+        'rpm': 2450.0, 'cht_c': 142.0, 'egt_c': 615.0,
+        'oil_pressure_bar': 4.69, 'oil_temperature_c': 92.0,
+        'fuel_flow_lh': 17.6, 'vibration_g': 1.42
     }
     scores = engine.compute_sensor_scores(normal_point)
     print(f"  Sensor Scores: {scores}")
@@ -83,7 +83,7 @@ def main():
     # Test with single-sensor fault (CHT spike)
     print("  --- Simulated CHT Sensor Fault ---")
     sensor_fault_point = normal_point.copy()
-    sensor_fault_point['cht_c'] = 350.0  # Extreme CHT
+    sensor_fault_point['cht_c'] = 228.0  # Extreme CHT drift
     scores = engine.compute_sensor_scores(sensor_fault_point)
     print(f"  Sensor Scores: {scores}")
     print(f"  CHT score: {scores['cht_c']:.4f} (should be >> 3.0)")
@@ -93,9 +93,9 @@ def main():
     # Test with multi-sensor fault (engine failure)
     print("  --- Simulated Engine Failure ---")
     engine_fault_point = {
-        'rpm': 5400.0, 'cht_c': 210.0, 'egt_c': 820.0,
-        'oil_pressure_bar': 2.5, 'oil_temperature_c': 130.0,
-        'fuel_flow_lh': 25.0, 'vibration_g': 0.9
+        'rpm': 1800.0, 'cht_c': 198.0, 'egt_c': 730.0,
+        'oil_pressure_bar': 2.2, 'oil_temperature_c': 120.0,
+        'fuel_flow_lh': 24.5, 'vibration_g': 2.6
     }
     scores = engine.compute_sensor_scores(engine_fault_point)
     print(f"  Sensor Scores: {scores}")

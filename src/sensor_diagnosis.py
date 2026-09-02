@@ -40,15 +40,16 @@ SENSOR_DISPLAY_NAMES = {
     'vibration_g': 'Vibration RMS'
 }
 
-# Normal operational baselines (Rotax 914 F piston engine nominal cruise)
+# Normal operational baselines aligned with TelemetryProcessor nominal cruise.
+# Oil pressure converted from 68 psi to bar: 68/14.5038 ≈ 4.69 bar.
 SENSOR_BASELINES = {
-    'rpm': {'mean': 2450.0, 'std': 35.0},
-    'cht_c': {'mean': 142.0, 'std': 3.5},
-    'egt_c': {'mean': 615.0, 'std': 8.0},
-    'oil_pressure_bar': {'mean': 4.7, 'std': 0.2},
-    'oil_temperature_c': {'mean': 92.0, 'std': 2.5},
-    'fuel_flow_lh': {'mean': 17.6, 'std': 0.4},
-    'vibration_g': {'mean': 1.42, 'std': 0.05}
+    'rpm': {'mean': 2450.0, 'std': 12.0},
+    'cht_c': {'mean': 142.0, 'std': 1.2},
+    'egt_c': {'mean': 615.0, 'std': 3.0},
+    'oil_pressure_bar': {'mean': 4.69, 'std': 0.06},
+    'oil_temperature_c': {'mean': 92.0, 'std': 1.0},
+    'fuel_flow_lh': {'mean': 17.6, 'std': 0.2},
+    'vibration_g': {'mean': 1.42, 'std': 0.02}
 }
 
 # Diagnosis classification types
@@ -490,7 +491,7 @@ class SensorDiagnosisEngine:
                 suspected_sensor, affected_sensors, sensor_scores, evidence,
                 persistence_count, expected_values
         """
-        scenario = telemetry.get("scenario") or telemetry.get("fault_label") or "Normal"
+        scenario = telemetry.get("scenario") or telemetry.get("fault_label")
 
         # 1. NOMINAL OPERATION: Show all engine and sensors in good health
         if scenario == "Normal":

@@ -24,11 +24,11 @@ from src.sensor_diagnosis import (
 
 
 def normal_telemetry():
-    """Generate a normal telemetry point."""
+    """Generate a normal telemetry point matching Rotax nominal cruise."""
     return {
-        'rpm': 6100.0, 'cht_c': 150.0, 'egt_c': 700.0,
-        'oil_pressure_bar': 4.3, 'oil_temperature_c': 95.0,
-        'fuel_flow_lh': 18.5, 'vibration_g': 0.2
+        'rpm': 2450.0, 'cht_c': 142.0, 'egt_c': 615.0,
+        'oil_pressure_bar': 4.69, 'oil_temperature_c': 92.0,
+        'fuel_flow_lh': 17.6, 'vibration_g': 1.42
     }
 
 
@@ -72,7 +72,7 @@ def test_2_temperature_sensor_failure(engine):
 
     # Now inject CHT spike, keep everything else normal
     tel = normal_telemetry()
-    tel['cht_c'] = 350.0
+    tel['cht_c'] = 240.0
 
     for _ in range(5):
         result = engine.diagnose(tel)
@@ -96,7 +96,7 @@ def test_3_oil_pressure_sensor_failure(engine):
         engine.diagnose(normal_telemetry())
 
     tel = normal_telemetry()
-    tel['oil_pressure_bar'] = 0.5  # Extreme low
+    tel['oil_pressure_bar'] = 1.0  # Extreme low
 
     for _ in range(5):
         result = engine.diagnose(tel)
@@ -119,7 +119,7 @@ def test_4_vibration_sensor_failure(engine):
         engine.diagnose(normal_telemetry())
 
     tel = normal_telemetry()
-    tel['vibration_g'] = 2.5  # Extreme vibration
+    tel['vibration_g'] = 3.5  # Extreme vibration
 
     for _ in range(5):
         result = engine.diagnose(tel)
@@ -142,13 +142,13 @@ def test_5_engine_failure(engine):
         engine.diagnose(normal_telemetry())
 
     tel = {
-        'rpm': 5400.0,
-        'cht_c': 210.0,
-        'egt_c': 820.0,
-        'oil_pressure_bar': 2.5,
-        'oil_temperature_c': 130.0,
+        'rpm': 1800.0,
+        'cht_c': 205.0,
+        'egt_c': 760.0,
+        'oil_pressure_bar': 2.2,
+        'oil_temperature_c': 125.0,
         'fuel_flow_lh': 25.0,
-        'vibration_g': 0.9
+        'vibration_g': 2.8
     }
 
     for _ in range(5):
@@ -173,7 +173,7 @@ def test_6_single_noisy_reading(engine):
 
     # One abnormal reading
     tel = normal_telemetry()
-    tel['cht_c'] = 350.0
+    tel['cht_c'] = 240.0
     result = engine.diagnose(tel)
 
     # Immediately followed by normal
@@ -195,7 +195,7 @@ def test_7_persistent_single_sensor(engine):
     engine.reset_persistence()
 
     tel = normal_telemetry()
-    tel['egt_c'] = 850.0  # Extreme EGT
+    tel['egt_c'] = 780.0  # Extreme EGT
 
     confidences = []
     for i in range(8):
@@ -216,13 +216,13 @@ def test_8_persistent_multi_sensor(engine):
     engine.reset_persistence()
 
     tel = {
-        'rpm': 5200.0,
-        'cht_c': 220.0,
-        'egt_c': 830.0,
-        'oil_pressure_bar': 2.2,
-        'oil_temperature_c': 135.0,
+        'rpm': 1750.0,
+        'cht_c': 210.0,
+        'egt_c': 765.0,
+        'oil_pressure_bar': 2.0,
+        'oil_temperature_c': 128.0,
         'fuel_flow_lh': 26.0,
-        'vibration_g': 1.1
+        'vibration_g': 2.9
     }
 
     confidences = []

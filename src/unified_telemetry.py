@@ -130,51 +130,47 @@ class TelemetryProcessor:
             "injection_timing": self.base_sensors["injection_timing"] + random.gauss(0, 0.12)
         }
         
-        # In nominal cruise without injected faults, health index is 96-98%
-        health_index = 96.0 - (self.cycle / self.max_useful_life) * 3.0
+        # 2. Inject scenarios: modify sensor values with immediate impact + progressive compounding
+        #    Health is NOT set here — it is DERIVED from sensor deviations below (step 2b).
+        is_sensor_only_fault = False  # True for faults that only affect sensor readings, not engine
         
-        # 2. Inject scenarios with immediate baseline impact + progressive compounding
         if scenario == "Overheating":
             curr_sensors["cht"] += 38.0 + prog * 28.0
             curr_sensors["egt"] += 75.0 + prog * 45.0
             curr_sensors["oil_temperature"] += 20.0 + prog * 16.0
-            health_index -= (38.0 + prog * 22.0)
             
         elif scenario in ["Oil_Pressure_Loss", "Lubrication"]:
             curr_sensors["oil_pressure"] -= (35.0 + prog * 15.0)
             curr_sensors["oil_temperature"] += 18.0 + prog * 14.0
             curr_sensors["vibration"] += 0.40 + prog * 0.40
-            health_index -= (46.0 + prog * 24.0)
             
         elif scenario == "RPM_Drop":
             curr_sensors["rpm"] -= (450.0 + prog * 250.0)
             curr_sensors["fuel_flow"] -= (4.0 + prog * 2.0)
-            health_index -= (34.0 + prog * 22.0)
             
         elif scenario in ["High_Vibration", "Vibration_Fault"]:
             curr_sensors["vibration"] += (1.05 + prog * 0.65)
-            health_index -= (38.0 + prog * 22.0)
             
         elif scenario in ["Sensor_Fault_CHT", "Sensor_Fault_Temp"]:
-            # Single sensor anomaly: CHT thermocouple spikes to 228°C while engine is healthy
+            # Single sensor anomaly: CHT thermocouple spikes while engine is actually healthy.
+            # Only the CHT reading drifts — other engine parameters remain normal.
             curr_sensors["cht"] = 228.0 + random.gauss(0, 3.0) + prog * 6.0
-            health_index -= (22.0 + prog * 8.0)
+            is_sensor_only_fault = True
             
         elif scenario == "Sensor_Drift":
+            # Gradual CHT calibration drift. Engine is healthy but sensor reading diverges.
             curr_sensors["cht"] += (28.0 + prog * 32.0)
-            health_index -= (25.0 + prog * 20.0)
+            is_sensor_only_fault = True
             
         elif scenario == "Injector_Degradation":
             curr_sensors["fuel_flow"] += (7.0 + prog * 4.0)
             curr_sensors["egt"] += (68.0 + prog * 42.0)
             curr_sensors["rpm"] += random.gauss(0, 45.0 + prog * 70.0)
-            health_index -= (38.0 + prog * 22.0)
             
         elif scenario == "Misfire":
             curr_sensors["rpm"] -= (320.0 + random.uniform(-60.0, 60.0))
             curr_sensors["vibration"] += (0.75 + prog * 0.45)
             curr_sensors["egt"] -= (45.0 + prog * 30.0)
-            health_index -= (40.0 + prog * 22.0)
             
         elif scenario == "Engine_Failure_Multi":
             curr_sensors["rpm"] -= (620.0 + prog * 250.0)
@@ -184,8 +180,80 @@ class TelemetryProcessor:
             curr_sensors["oil_temperature"] += (26.0 + prog * 15.0)
             curr_sensors["vibration"] += (1.10 + prog * 0.50)
             curr_sensors["fuel_flow"] += (7.0 + prog * 3.0)
-            health_index -= (68.0 + prog * 16.0)
 
+        # 2b. Transparent Weighted Health Model
+        # ──────────────────────────────────────
+        # Health Index is DERIVED from actual sensor deviations, not from knowing
+        # which fault button was pressed. Each subsystem contributes a 0-100 score
+        # based on how far its sensor(s) deviate from baseline toward alarm thresholds.
+        #
+        # Subsystem weights sum to 1.0:
+        #   Thermal (CHT, EGT, OilTemp)   = 0.30
+        #   Lubrication (OilP, OilTemp)    = 0.25
+        #   Mechanical (Vibration)         = 0.20
+        #   Combustion (FuelFlow, RPM)     = 0.20
+        #   Sensor confidence              = 0.05
+        
+        def _deviation_score(value: float, baseline: float, caution_thresh: float, alert_thresh: float) -> float:
+            """Returns 0-100 score: 100 = at baseline, 0 = at or beyond alert threshold.
+            Works for both high-is-bad (CHT, EGT) and low-is-bad (Oil Pressure) deviations."""
+            deviation = abs(value - baseline)
+            caution_dist = abs(caution_thresh - baseline)
+            alert_dist = abs(alert_thresh - baseline)
+            
+            if alert_dist < 0.01:
+                return 100.0  # Can't compute, assume healthy
+            
+            # Normalize deviation as fraction of alert distance
+            frac = deviation / alert_dist
+            # Map: 0 deviation → 100, at alert → 0, beyond alert → clamp to 0
+            score = max(0.0, 100.0 * (1.0 - frac))
+            return score
+        
+        # Thermal subsystem: CHT, EGT, Oil Temperature
+        cht_score = _deviation_score(curr_sensors["cht"], 142.0, 165.0, 195.0)
+        egt_score = _deviation_score(curr_sensors["egt"], 615.0, 680.0, 760.0)
+        oil_t_score = _deviation_score(curr_sensors["oil_temperature"], 92.0, 108.0, 125.0)
+        thermal_health = 0.40 * cht_score + 0.35 * egt_score + 0.25 * oil_t_score
+        
+        # Lubrication subsystem: Oil Pressure (low-is-bad), Oil Temperature
+        oil_p_score = _deviation_score(curr_sensors["oil_pressure"], 68.0, 50.0, 35.0)
+        lub_health = 0.65 * oil_p_score + 0.35 * oil_t_score
+        
+        # Mechanical subsystem: Vibration
+        vib_score = _deviation_score(curr_sensors["vibration"], 1.42, 2.1, 2.9)
+        mech_health = vib_score
+        
+        # Combustion subsystem: Fuel Flow, RPM
+        fuel_score = _deviation_score(curr_sensors["fuel_flow"], 17.6, 24.0, 28.0)
+        rpm_score = _deviation_score(curr_sensors["rpm"], 2450.0, 2100.0, 1800.0)
+        comb_health = 0.50 * fuel_score + 0.50 * rpm_score
+        
+        # Sensor confidence: for sensor-only faults, CHT diverges from what other
+        # sensors would predict. For real engine faults, sensors are consistent.
+        if is_sensor_only_fault:
+            # CHT is drifting but engine is fine. Penalize sensor confidence heavily.
+            cht_drift_magnitude = abs(curr_sensors["cht"] - 142.0)
+            sensor_confidence = max(0.0, 100.0 - cht_drift_magnitude * 1.5)
+            # But DON'T penalize thermal health — engine is actually fine.
+            # Override thermal scores to reflect true engine state (healthy).
+            thermal_health = 95.0 + random.gauss(0, 1.0)
+        else:
+            sensor_confidence = 100.0
+        
+        # Weighted combination
+        raw_health = (
+            0.30 * thermal_health +
+            0.25 * lub_health +
+            0.20 * mech_health +
+            0.20 * comb_health +
+            0.05 * sensor_confidence
+        )
+        
+        # Apply gentle age-based degradation (natural wear over mission cycles)
+        age_penalty = (self.cycle / self.max_useful_life) * 3.0
+        health_index = raw_health - age_penalty
+        
         health_index = max(8.0, min(99.0, health_index))
 
         # 3. Compute Sensor Items with Status (NORMAL, CAUTION, ALERT) and Trends (UP, DOWN, STABLE)

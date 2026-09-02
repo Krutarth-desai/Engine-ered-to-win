@@ -14,33 +14,42 @@ class AeroTwinAnomalyDetector:
         ]
         self.is_trained = False
         
-        # Baselines for deviation checks (approximated from normal simulation state)
+        # Baselines aligned with TelemetryProcessor nominal cruise output.
+        # Oil pressure is converted: 68 psi / 14.5038 ≈ 4.69 bar (TelemetryProcessor
+        # stores in psi internally but tick_and_broadcast converts to bar before
+        # feeding this detector).
         self.baselines = {
-            'rpm': 6100,
-            'cht_c': 150,
-            'egt_c': 700,
-            'oil_pressure_bar': 4.3,
-            'oil_temperature_c': 95,
-            'fuel_flow_lh': 18.5,
-            'vibration_g': 0.2
+            'rpm': 2450.0,
+            'cht_c': 142.0,
+            'egt_c': 615.0,
+            'oil_pressure_bar': 4.69,
+            'oil_temperature_c': 92.0,
+            'fuel_flow_lh': 17.6,
+            'vibration_g': 1.42
+        }
+
+        # Training noise sigmas matching TelemetryProcessor random.gauss spreads
+        self._train_sigmas = {
+            'rpm': 12.0,
+            'cht_c': 1.2,
+            'egt_c': 3.0,
+            'oil_pressure_bar': 0.06,   # 0.5 psi / 14.5 ≈ 0.034, widened slightly
+            'oil_temperature_c': 1.0,
+            'fuel_flow_lh': 0.2,
+            'vibration_g': 0.02
         }
 
     def train_baseline(self, num_samples=1000):
         """
         Trains the IsolationForest on a generated baseline of 'Normal' telemetry data.
-        This mimics the normal operational state of the engine.
+        Baselines and sigmas are aligned with TelemetryProcessor nominal cruise output.
         """
         print("[AeroTwin] Training IsolationForest baseline...")
         data = []
         for _ in range(num_samples):
             data.append([
-                np.random.normal(self.baselines['rpm'], 20),
-                np.random.normal(self.baselines['cht_c'], 2),
-                np.random.normal(self.baselines['egt_c'], 5),
-                np.random.normal(self.baselines['oil_pressure_bar'], 0.1),
-                np.random.normal(self.baselines['oil_temperature_c'], 2),
-                np.random.normal(self.baselines['fuel_flow_lh'], 0.2),
-                np.random.normal(self.baselines['vibration_g'], 0.02)
+                np.random.normal(self.baselines[f], self._train_sigmas[f])
+                for f in self.features
             ])
         
         df = pd.DataFrame(data, columns=self.features)
