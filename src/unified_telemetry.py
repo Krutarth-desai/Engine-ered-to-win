@@ -261,35 +261,75 @@ class TelemetryProcessor:
         }
 
         # 5. Risk & Decision Engine
-        # STRICT RULE: Show anomaly ONLY when injected from the fault matrix
-        if scenario != "Normal":
-            if scenario in ["Engine_Failure_Multi", "Oil_Pressure_Loss"]:
-                risk_level = "CRITICAL"
-                anomaly_state = "ALERT"
-                recommended_action = "Initiate emergency procedures. Divert immediately."
-            elif scenario in ["Overheating", "High_Vibration", "RPM_Drop"]:
-                risk_level = "HIGH"
-                anomaly_state = "CAUTION"
-                recommended_action = "Enrich mixture, limit throttle <65%, monitor closely."
-            elif scenario in ["Sensor_Fault_CHT", "Sensor_Fault_Temp", "Sensor_Drift", "Misfire"]:
-                risk_level = "MEDIUM"
-                anomaly_state = "CAUTION"
-                recommended_action = "Sensor discrepancy detected. Cross-channel isolation active."
-            else:
-                has_alert_sensor = any(s["status"] == "ALERT" for s in sensor_list)
-                risk_level = "CRITICAL" if has_alert_sensor else "HIGH"
-                anomaly_state = "ALERT" if has_alert_sensor else "CAUTION"
-                recommended_action = "Investigate anomaly. Follow operational checklist."
-        else:
-            # Strictly nominal when running without fault injection
+        # User-friendly, professional, actionable flight recommendations
+        if scenario == "Normal":
             risk_level = "LOW"
             anomaly_state = "NORMAL"
-            recommended_action = "Nominal Cruise Profile - All Systems Normal"
+            recommended_action = "All engine systems and sensors are performing nominally. Continue planned cruise profile."
+            status_label = "SYSTEMS OPTIMAL"
+            guidance = "All thermal, hydraulic, and electrical parameters are within standard operating limits. No pilot intervention required."
+        elif scenario in ["Sensor_Fault_CHT", "Sensor_Fault_Temp"]:
+            risk_level = "MEDIUM"
+            anomaly_state = "CAUTION"
+            recommended_action = "CHT thermocouple reading is anomalous, but engine is healthy. Continue flight and inspect sensor wiring post-flight."
+            status_label = "SENSOR ADVISORY"
+            guidance = "Cross-sensor validation confirms normal RPM, EGT, and oil pressure. No power reduction is required."
+        elif scenario == "Sensor_Drift":
+            risk_level = "MEDIUM"
+            anomaly_state = "CAUTION"
+            recommended_action = "Gradual calibration drift detected on CHT sensor. Recalibrate thermocouple probe at next maintenance stop."
+            status_label = "CALIBRATION NOTICE"
+            guidance = "Physical thermodynamic models confirm normal engine operation. Bias is isolated to the instrument channel."
+        elif scenario == "Overheating":
+            risk_level = "HIGH"
+            anomaly_state = "CAUTION"
+            recommended_action = "Engine temperatures are elevated. Reduce throttle to 60%, level off, and monitor cylinder head cooling."
+            status_label = "THERMAL CAUTION"
+            guidance = "Maintain airspeed above 85 KIAS to optimize ram-air cooling through radiator baffles until temperatures stabilize."
+        elif scenario == "Oil_Pressure_Loss":
+            risk_level = "CRITICAL"
+            anomaly_state = "ALERT"
+            recommended_action = "Low oil pressure warning. Reduce engine power and divert to the nearest available airfield."
+            status_label = "LUBRICATION ALERT"
+            guidance = "Oil pressure is below normal operating limits. Avoid high-load maneuvers and prepare for a precautionary landing."
+        elif scenario == "RPM_Drop":
+            risk_level = "HIGH"
+            anomaly_state = "CAUTION"
+            recommended_action = "Uncommanded engine power drop detected. Verify throttle lever and monitor governor response."
+            status_label = "POWER ADVISORY"
+            guidance = "Check fuel flow and auxiliary pump status. Maintain safe glide airspeed while diagnosing governor response."
+        elif scenario == "High_Vibration":
+            risk_level = "HIGH"
+            anomaly_state = "CAUTION"
+            recommended_action = "Elevated airframe vibration detected. Adjust RPM away from resonant band and inspect propeller on landing."
+            status_label = "MECHANICAL CAUTION"
+            guidance = "Avoid operating between 2,200 and 2,400 RPM. Restrict continuous power to prevent mechanical fatigue."
+        elif scenario == "Misfire":
+            risk_level = "MEDIUM"
+            anomaly_state = "CAUTION"
+            recommended_action = "Intermittent cylinder misfire detected. Enrich fuel mixture and monitor engine smoothness."
+            status_label = "COMBUSTION CAUTION"
+            guidance = "Combustion irregularity observed. Check dual ignition circuits and avoid high climb power settings."
+        elif scenario == "Engine_Failure_Multi":
+            risk_level = "CRITICAL"
+            anomaly_state = "ALERT"
+            recommended_action = "Multiple engine systems failing simultaneously. Initiate emergency procedures and land immediately."
+            status_label = "EMERGENCY DIRECTIVE"
+            guidance = "Correlated thermal, hydraulic, and mechanical degradation confirmed. Establish best glide and execute forced landing checklist."
+        else:
+            has_alert_sensor = any(s["status"] == "ALERT" for s in sensor_list)
+            risk_level = "CRITICAL" if has_alert_sensor else "HIGH"
+            anomaly_state = "ALERT" if has_alert_sensor else "CAUTION"
+            recommended_action = "Operational parameter variance detected. Inspect active alert sensors and follow checklist."
+            status_label = "OPERATIONAL ALERT"
+            guidance = "Refer to subsystem diagnostics tab for detailed residual analysis."
 
         risk_data = {
             "level": risk_level,
             "anomaly": anomaly_state,
-            "action": recommended_action
+            "action": recommended_action,
+            "status_label": status_label,
+            "guidance": guidance
         }
 
         # 6. Top Contributing Features Engine

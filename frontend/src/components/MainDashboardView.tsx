@@ -23,7 +23,13 @@ export default function MainDashboardView({
   const trend = payload.prognostics?.degradation_trend || "Stable";
   const riskLevel = payload.risk?.level || "LOW";
   const anomalyState = payload.risk?.anomaly || "NORMAL";
-  const actionText = payload.risk?.action || "Nominal Cruise Profile - All Systems Normal";
+  const actionText = payload.risk?.action || "All engine systems and sensors are performing nominally. Continue planned cruise profile.";
+  const actionStatus = payload.risk?.status_label || (riskLevel === "LOW" ? "SYSTEMS OPTIMAL" : "OPERATIONAL ADVISORY");
+  const actionGuidance = payload.risk?.guidance || (
+    riskLevel === "CRITICAL" || riskLevel === "HIGH"
+      ? "Immediate pilot intervention recommended. Refer to maintenance procedures."
+      : "Continuous telemetry baseline nominal. No flight plan deviation required."
+  );
 
   // Active top alert (most recent high-priority alert)
   const activeAlert = payload.alerts && payload.alerts.length > 0 ? payload.alerts[0] : null;
@@ -143,13 +149,14 @@ export default function MainDashboardView({
             <span className="kpi-link-hint">MAINTENANCE →</span>
           </div>
           <div className="kpi-body">
+            <div className="action-status-badge" style={{ color: getRiskColor(riskLevel) }}>
+              <strong>[{actionStatus}]</strong>
+            </div>
             <div className="action-highlight-box">
               <span className="action-title-text"><strong>{actionText}</strong></span>
             </div>
             <div className="kpi-subtext">
-              {riskLevel === "CRITICAL" || riskLevel === "HIGH"
-                ? "Immediate pilot intervention recommended"
-                : "Continuous telemetry baseline nominal"}
+              {actionGuidance}
             </div>
           </div>
         </div>

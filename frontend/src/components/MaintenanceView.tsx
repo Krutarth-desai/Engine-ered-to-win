@@ -8,9 +8,10 @@ interface MaintenanceViewProps {
 }
 
 export default function MaintenanceView({ payload }: MaintenanceViewProps) {
-  const riskLevel = payload.risk?.level || "MEDIUM";
-  const action = payload.risk?.action || "Monitor Closely";
-  const health = Math.round(payload.health_index || 72);
+  const riskLevel = payload.risk?.level || "LOW";
+  const action = payload.risk?.action || "All engine systems and sensors are performing nominally. Continue planned cruise profile.";
+  const guidance = payload.risk?.guidance;
+  const health = Math.round(payload.health_index || 96);
 
   const getPriorityStyle = (level: string) => {
     switch (level) {
@@ -67,7 +68,7 @@ export default function MaintenanceView({ payload }: MaintenanceViewProps) {
                 <span className="action-hero-text"><strong>{action}</strong></span>
               </div>
               <p className="action-context">
-                Automated recommendation generated based on cross-correlated physical telemetry, remaining useful life estimates ({Math.round(payload.prognostics?.predicted_rul || 117)} cycles), and current health index ({health}/100).
+                {guidance || `Automated recommendation generated based on cross-correlated physical telemetry, remaining useful life estimates (${Math.round(payload.prognostics?.predicted_rul || 117)} cycles), and current health index (${health}/100).`}
               </p>
             </div>
           </div>

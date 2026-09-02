@@ -86,6 +86,8 @@ export interface RiskData {
   level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   anomaly: "NORMAL" | "CAUTION" | "ALERT";
   action: string;
+  status_label?: string;
+  guidance?: string;
 }
 
 export interface FeatureContribution {
