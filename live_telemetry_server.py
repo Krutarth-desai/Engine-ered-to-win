@@ -272,10 +272,131 @@ def generate_live_data_tick(tick: int, scenario: str):
     }
     return data
 
+async def tick_and_broadcast():
+    """Generates a tick of telemetry, runs anomaly diagnosis, and broadcasts immediately."""
+    if len(manager.active_connections) == 0 and not simulation_state["is_running"]:
+        return
+
+    # 1. Generate 3-Layer Unified Telemetry & Prognostics Payload
+    unified_data = telemetry_processor.process_tick(
+        simulation_state["tick"],
+        simulation_state["scenario"],
+        simulation_state
+    )
+    
+    # 2. Flatten for legacy compatibility & Scikit-learn Anomaly Detection
+    rpm_val = unified_data["sensors"]["rpm"]["value"]
+    cht_val = unified_data["sensors"]["cht"]["value"]
+    egt_val = unified_data["sensors"]["egt"]["value"]
+    oil_p_bar = round(unified_data["sensors"]["oil_pressure"]["value"] / 14.5038, 2)
+    oil_t_val = unified_data["sensors"]["oil_temperature"]["value"]
+    fuel_val = unified_data["sensors"]["fuel_flow"]["value"]
+    vib_val = unified_data["sensors"]["vibration"]["value"]
+    voltage_val = unified_data["sensors"]["bus_voltage"]["value"]
+    timing_val = unified_data["sensors"]["injection_timing"]["value"]
+    
+    flat_telemetry = {
+        "timestamp": unified_data["timestamp"],
+        "engine_id": "ENG_001",
+        "mission_id": "ISR_PATROL_27",
+        "scenario": simulation_state["scenario"],
+        "tick": simulation_state["tick"],
+        "rpm": rpm_val,
+        "cht_c": cht_val,
+        "egt_c": egt_val,
+        "oil_pressure_bar": oil_p_bar,
+        "oil_temperature_c": oil_t_val,
+        "fuel_flow_lh": fuel_val,
+        "vibration_g": vib_val,
+        "battery_voltage_v": voltage_val,
+        "injection_timing_deg": timing_val,
+        "health_index": unified_data["health_index"],
+        "rul": unified_data["prognostics"]["predicted_rul"],
+        "fault_label": unified_data["fault_label"]
+    }
+    
+    # 3. Anomaly & Sensor-vs-Engine Cross-Diagnosis Pipeline
+    is_anomaly, score = anomaly_detector.detect(flat_telemetry)
+    fault_info = anomaly_detector.infer_fault(flat_telemetry, is_anomaly, score)
+    flat_telemetry.update(fault_info)
+    flat_telemetry["anomaly_score"] = score
+    
+    diag_result = sensor_diagnosis_engine.diagnose(
+        flat_telemetry,
+        is_isolation_forest_anomaly=is_anomaly,
+        isolation_forest_score=score
+    )
+    flat_telemetry["sensor_diagnosis"] = diag_result
+    
+    # Merge flat fields into unified_data so all components can access whichever they need
+    unified_data.update(flat_telemetry)
+    unified_data["sensor_diagnosis"] = diag_result
+    
+    # Align risk with sensor diagnosis while preserving rich user-friendly messaging
+    if diag_result["diagnosis_type"] == "POSSIBLE_SENSOR_FAILURE" and diag_result["suspected_sensor"]:
+        unified_data["risk"]["anomaly"] = "CAUTION"
+        unified_data["risk"]["level"] = "MEDIUM"
+        if not unified_data["risk"].get("action") or "Nominal" in unified_data["risk"].get("action", ""):
+            sensor_label = diag_result["suspected_sensor"].upper().replace("_C", "").replace("_BAR", "")
+            unified_data["risk"]["action"] = f"{sensor_label} sensor reading is anomalous, but engine is healthy. Inspect sensor harness post-flight."
+            unified_data["risk"]["status_label"] = "SENSOR ADVISORY"
+    elif diag_result["diagnosis_type"] == "POSSIBLE_ENGINE_FAILURE":
+        unified_data["risk"]["anomaly"] = "ALERT"
+        unified_data["risk"]["level"] = "CRITICAL"
+        if not unified_data["risk"].get("action") or "Nominal" in unified_data["risk"].get("action", ""):
+            unified_data["risk"]["action"] = "Multiple engine systems degrading. Reduce power and prepare to divert to nearest airfield."
+            unified_data["risk"]["status_label"] = "EMERGENCY DIRECTIVE"
+    elif simulation_state.get("scenario") == "Normal":
+        unified_data["risk"]["anomaly"] = "NORMAL"
+        unified_data["risk"]["level"] = "LOW"
+        unified_data["risk"]["action"] = "All engine systems and sensors are performing nominally. Continue planned cruise profile."
+        unified_data["risk"]["status_label"] = "SYSTEMS OPTIMAL"
+        unified_data["risk"]["guidance"] = "All thermal, hydraulic, and electrical parameters are within standard operating limits. No pilot intervention required."
+    
+    # 4. Optional Supabase anomaly logging
+    if supabase_client and fault_info.get("status") != "Normal":
+        anomaly_record = {
+            "engine_id": "UAV_ENG_001",
+            "anomaly_score": float(score),
+            "severity": fault_info.get("severity", "MEDIUM"),
+            "fault_type": fault_info.get("fault", "Operational Alert"),
+            "evidence": fault_info.get("evidence", ""),
+            "treatment_action": unified_data["risk"]["action"],
+            "prevention_action": fault_info.get("prevention", ""),
+            "diagnosis_type": diag_result["diagnosis_type"],
+            "diagnosis_confidence": max(
+                diag_result["sensor_fault_confidence"],
+                diag_result["engine_fault_confidence"]
+            ),
+            "suspected_sensor": diag_result.get("suspected_sensor"),
+            "affected_sensors": json.dumps(diag_result.get("affected_sensors", [])),
+            "sensor_anomaly_scores": json.dumps(diag_result.get("sensor_scores", {}))
+        }
+        def push_to_supabase(record):
+            try:
+                supabase_client.table("telemetry_anomalies").insert(record).execute()
+            except Exception as e:
+                pass
+        asyncio.create_task(asyncio.to_thread(push_to_supabase, anomaly_record))
+    
+    # Buffer for regression plot
+    recent_telemetry_buffer.append(flat_telemetry)
+    if len(recent_telemetry_buffer) > 100:
+        recent_telemetry_buffer.pop(0)
+
+    # Broadcast unified packet
+    await manager.broadcast(json.dumps(unified_data))
+    simulation_state["tick"] += 1
+
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
     """WebSocket endpoint for real-time telemetry streaming."""
     await manager.connect(websocket)
+    # Send current frame immediately upon client connection
+    try:
+        await tick_and_broadcast()
+    except Exception:
+        pass
     try:
         while True:
             data = await websocket.receive_text()
@@ -286,7 +407,9 @@ async def websocket_telemetry(websocket: WebSocket):
                     simulation_state["tick"] = 0
                     # Reset sensor diagnosis persistence on scenario change
                     sensor_diagnosis_engine.reset_persistence()
-                    print(f"*** Injected scenario: {cmd['scenario']} ***")
+                    print(f"*** WS Injected scenario: {cmd['scenario']} ***")
+                    # Immediately tick and broadcast with zero latency
+                    await tick_and_broadcast()
                 if "is_running" in cmd:
                     simulation_state["is_running"] = cmd["is_running"]
             except Exception as e:
@@ -294,120 +417,23 @@ async def websocket_telemetry(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+@app.post("/api/scenario")
+@app.post("/api/inject_scenario")
+async def api_inject_scenario(payload: dict):
+    """HTTP POST fallback to inject fault scenarios with immediate broadcast."""
+    sc = payload.get("scenario", "Normal")
+    simulation_state["scenario"] = sc
+    simulation_state["tick"] = 0
+    sensor_diagnosis_engine.reset_persistence()
+    print(f"*** HTTP POST Injected scenario: {sc} ***")
+    await tick_and_broadcast()
+    return {"status": "ok", "scenario": sc, "health_index": simulation_state.get("health_index")}
+
 async def simulation_loop():
     """Background task that ticks the simulation and broadcasts data at 1 Hz."""
     while True:
         if simulation_state["is_running"] and len(manager.active_connections) > 0:
-            # 1. Generate 3-Layer Unified Telemetry & Prognostics Payload
-            unified_data = telemetry_processor.process_tick(
-                simulation_state["tick"],
-                simulation_state["scenario"],
-                simulation_state
-            )
-            
-            # 2. Flatten for legacy compatibility & Scikit-learn Anomaly Detection
-            rpm_val = unified_data["sensors"]["rpm"]["value"]
-            cht_val = unified_data["sensors"]["cht"]["value"]
-            egt_val = unified_data["sensors"]["egt"]["value"]
-            oil_p_bar = round(unified_data["sensors"]["oil_pressure"]["value"] / 14.5038, 2)
-            oil_t_val = unified_data["sensors"]["oil_temperature"]["value"]
-            fuel_val = unified_data["sensors"]["fuel_flow"]["value"]
-            vib_val = unified_data["sensors"]["vibration"]["value"]
-            voltage_val = unified_data["sensors"]["bus_voltage"]["value"]
-            timing_val = unified_data["sensors"]["injection_timing"]["value"]
-            
-            flat_telemetry = {
-                "timestamp": unified_data["timestamp"],
-                "engine_id": "ENG_001",
-                "mission_id": "ISR_PATROL_27",
-                "scenario": simulation_state["scenario"],
-                "tick": simulation_state["tick"],
-                "rpm": rpm_val,
-                "cht_c": cht_val,
-                "egt_c": egt_val,
-                "oil_pressure_bar": oil_p_bar,
-                "oil_temperature_c": oil_t_val,
-                "fuel_flow_lh": fuel_val,
-                "vibration_g": vib_val,
-                "battery_voltage_v": voltage_val,
-                "injection_timing_deg": timing_val,
-                "health_index": unified_data["health_index"],
-                "rul": unified_data["prognostics"]["predicted_rul"],
-                "fault_label": unified_data["fault_label"]
-            }
-            
-            # 3. Anomaly & Sensor-vs-Engine Cross-Diagnosis Pipeline
-            is_anomaly, score = anomaly_detector.detect(flat_telemetry)
-            fault_info = anomaly_detector.infer_fault(flat_telemetry, is_anomaly, score)
-            flat_telemetry.update(fault_info)
-            flat_telemetry["anomaly_score"] = score
-            
-            diag_result = sensor_diagnosis_engine.diagnose(
-                flat_telemetry,
-                is_isolation_forest_anomaly=is_anomaly,
-                isolation_forest_score=score
-            )
-            flat_telemetry["sensor_diagnosis"] = diag_result
-            
-            # Merge flat fields into unified_data so all components can access whichever they need
-            unified_data.update(flat_telemetry)
-            unified_data["sensor_diagnosis"] = diag_result
-            
-            # Align risk with sensor diagnosis while preserving rich user-friendly messaging
-            if diag_result["diagnosis_type"] == "POSSIBLE_SENSOR_FAILURE" and diag_result["suspected_sensor"]:
-                unified_data["risk"]["anomaly"] = "CAUTION"
-                unified_data["risk"]["level"] = "MEDIUM"
-                if not unified_data["risk"].get("action") or "Nominal" in unified_data["risk"].get("action", ""):
-                    sensor_label = diag_result["suspected_sensor"].upper().replace("_C", "").replace("_BAR", "")
-                    unified_data["risk"]["action"] = f"{sensor_label} sensor reading is anomalous, but engine is healthy. Inspect sensor harness post-flight."
-                    unified_data["risk"]["status_label"] = "SENSOR ADVISORY"
-            elif diag_result["diagnosis_type"] == "POSSIBLE_ENGINE_FAILURE":
-                unified_data["risk"]["anomaly"] = "ALERT"
-                unified_data["risk"]["level"] = "CRITICAL"
-                if not unified_data["risk"].get("action") or "Nominal" in unified_data["risk"].get("action", ""):
-                    unified_data["risk"]["action"] = "Multiple engine systems degrading. Reduce power and prepare to divert to nearest airfield."
-                    unified_data["risk"]["status_label"] = "EMERGENCY DIRECTIVE"
-            elif simulation_state.get("scenario") == "Normal":
-                unified_data["risk"]["anomaly"] = "NORMAL"
-                unified_data["risk"]["level"] = "LOW"
-                unified_data["risk"]["action"] = "All engine systems and sensors are performing nominally. Continue planned cruise profile."
-                unified_data["risk"]["status_label"] = "SYSTEMS OPTIMAL"
-                unified_data["risk"]["guidance"] = "All thermal, hydraulic, and electrical parameters are within standard operating limits. No pilot intervention required."
-            
-            # 4. Optional Supabase anomaly logging
-            if supabase_client and fault_info.get("status") != "Normal":
-                anomaly_record = {
-                    "engine_id": "UAV_ENG_001",
-                    "anomaly_score": float(score),
-                    "severity": fault_info.get("severity", "MEDIUM"),
-                    "fault_type": fault_info.get("fault", "Operational Alert"),
-                    "evidence": fault_info.get("evidence", ""),
-                    "treatment_action": unified_data["risk"]["action"],
-                    "prevention_action": fault_info.get("prevention", ""),
-                    "diagnosis_type": diag_result["diagnosis_type"],
-                    "diagnosis_confidence": max(
-                        diag_result["sensor_fault_confidence"],
-                        diag_result["engine_fault_confidence"]
-                    ),
-                    "suspected_sensor": diag_result.get("suspected_sensor"),
-                    "affected_sensors": json.dumps(diag_result.get("affected_sensors", [])),
-                    "sensor_anomaly_scores": json.dumps(diag_result.get("sensor_scores", {}))
-                }
-                def push_to_supabase(record):
-                    try:
-                        supabase_client.table("telemetry_anomalies").insert(record).execute()
-                    except Exception as e:
-                        pass
-                asyncio.create_task(asyncio.to_thread(push_to_supabase, anomaly_record))
-            
-            # Buffer for regression plot
-            recent_telemetry_buffer.append(flat_telemetry)
-            if len(recent_telemetry_buffer) > 100:
-                recent_telemetry_buffer.pop(0)
-
-            # Broadcast unified packet
-            await manager.broadcast(json.dumps(unified_data))
-            simulation_state["tick"] += 1
+            await tick_and_broadcast()
         await asyncio.sleep(1.0)
 
 @app.get("/api/regression_plot")

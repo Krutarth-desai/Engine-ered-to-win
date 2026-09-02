@@ -551,7 +551,7 @@ class SensorDiagnosisEngine:
                 "expected_values": expected_values
             }
 
-        if scenario == "Oil_Pressure_Loss":
+        if scenario in ["Oil_Pressure_Loss", "Lubrication"]:
             affected = ['oil_pressure_bar', 'oil_temperature_c', 'vibration_g']
             sensor_scores = {s: round(float(np.random.uniform(0.2, 0.5)), 2) for s in DIAGNOSIS_SENSORS}
             sensor_scores['oil_pressure_bar'] = 8.92
@@ -593,7 +593,7 @@ class SensorDiagnosisEngine:
                 "expected_values": expected_values
             }
 
-        if scenario == "High_Vibration":
+        if scenario in ["High_Vibration", "Vibration_Fault"]:
             affected = ['vibration_g', 'rpm']
             sensor_scores = {s: round(float(np.random.uniform(0.2, 0.5)), 2) for s in DIAGNOSIS_SENSORS}
             sensor_scores['vibration_g'] = 8.35
@@ -609,6 +609,28 @@ class SensorDiagnosisEngine:
                 "affected_sensors": affected,
                 "sensor_scores": sensor_scores,
                 "evidence": "Harmonic mechanical vibration exceeds 2.0 g with valvetrain dynamic distortion, indicating rotational mechanical imbalance.",
+                "persistence_count": 5,
+                "expected_values": expected_values
+            }
+
+        if scenario == "Injector_Degradation":
+            affected = ['fuel_flow_lh', 'egt_c', 'rpm']
+            sensor_scores = {s: round(float(np.random.uniform(0.2, 0.5)), 2) for s in DIAGNOSIS_SENSORS}
+            sensor_scores['fuel_flow_lh'] = 8.65
+            sensor_scores['egt_c'] = 6.42
+            sensor_scores['rpm'] = 4.10
+            expected_values = {s: round(float(telemetry.get(s, SENSOR_BASELINES[s]['mean'])), 2) for s in DIAGNOSIS_SENSORS}
+            expected_values['fuel_flow_lh'] = 17.60
+            expected_values['egt_c'] = 615.0
+            expected_values['rpm'] = 2450.0
+            return {
+                "diagnosis_type": DIAG_ENGINE_FAILURE,
+                "sensor_fault_confidence": 0.05,
+                "engine_fault_confidence": 0.94,
+                "suspected_sensor": None,
+                "affected_sensors": affected,
+                "sensor_scores": sensor_scores,
+                "evidence": "Fuel Flow and EGT simultaneously deviate significantly from expected cruise schedule, indicating injector degradation.",
                 "persistence_count": 5,
                 "expected_values": expected_values
             }

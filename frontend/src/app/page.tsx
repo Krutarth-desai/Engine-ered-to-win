@@ -267,8 +267,28 @@ export default function Home() {
 
   const handleInjectScenario = (scenarioName: string) => {
     setActiveScenario(scenarioName);
+    // 1. Send via WebSocket if open
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ scenario: scenarioName }));
+      try {
+        wsRef.current.send(JSON.stringify({ scenario: scenarioName }));
+      } catch (e) {
+        console.warn("WebSocket send failed", e);
+      }
+    }
+    // 2. Also send via HTTP POST fallback for instant zero-latency processing
+    try {
+      const apiHost =
+        process.env.NEXT_PUBLIC_API_URL ||
+        (typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:8000`
+          : "http://localhost:8000");
+      fetch(`${apiHost}/api/scenario`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario: scenarioName }),
+      }).catch(() => {});
+    } catch {
+      // Ignored
     }
   };
 

@@ -49,7 +49,11 @@ class TelemetryProcessor:
         self._init_history()
         
         # Dynamic alerts memory (Nominal baseline when no fault is injected)
-        self.alert_feed: List[Dict[str, Any]] = [
+        self._init_alerts()
+
+    def _init_alerts(self):
+        """Reset alerts to nominal baseline."""
+        self.alert_feed = [
             {
                 "id": "alt-1",
                 "level": "NORMAL",
@@ -111,60 +115,76 @@ class TelemetryProcessor:
         if tick > 0 and tick % 25 == 0:
             self.cycle = min(self.cycle + 1, self.max_useful_life - 5)
             
-        degradation = min(tick / 60.0, 1.0)
+        prog = min(tick / 20.0, 1.0)
         
         # 1. Generate core sensor values with noise
         curr_sensors = {
-            "rpm": self.base_sensors["rpm"] + random.gauss(0, 15),
-            "cht": self.base_sensors["cht"] + random.gauss(0, 1.5),
-            "egt": self.base_sensors["egt"] + random.gauss(0, 3.5),
-            "oil_pressure": self.base_sensors["oil_pressure"] + random.gauss(0, 0.6),
-            "oil_temperature": self.base_sensors["oil_temperature"] + random.gauss(0, 1.2),
+            "rpm": self.base_sensors["rpm"] + random.gauss(0, 12),
+            "cht": self.base_sensors["cht"] + random.gauss(0, 1.2),
+            "egt": self.base_sensors["egt"] + random.gauss(0, 3.0),
+            "oil_pressure": self.base_sensors["oil_pressure"] + random.gauss(0, 0.5),
+            "oil_temperature": self.base_sensors["oil_temperature"] + random.gauss(0, 1.0),
             "fuel_flow": self.base_sensors["fuel_flow"] + random.gauss(0, 0.2),
             "vibration": self.base_sensors["vibration"] + random.gauss(0, 0.02),
             "bus_voltage": self.base_sensors["bus_voltage"] + random.gauss(0, 0.1),
-            "injection_timing": self.base_sensors["injection_timing"] + random.gauss(0, 0.15)
+            "injection_timing": self.base_sensors["injection_timing"] + random.gauss(0, 0.12)
         }
         
         # In nominal cruise without injected faults, health index is 96-98%
-        health_index = 96.0 - (self.cycle / self.max_useful_life) * 4.0
+        health_index = 96.0 - (self.cycle / self.max_useful_life) * 3.0
         
-        # 2. Inject scenarios
-        if scenario == "Overheating" and tick > 3:
-            curr_sensors["cht"] += degradation * 48.0
-            curr_sensors["egt"] += degradation * 95.0
-            curr_sensors["oil_temperature"] += degradation * 28.0
-            health_index -= degradation * 40.0
+        # 2. Inject scenarios with immediate baseline impact + progressive compounding
+        if scenario == "Overheating":
+            curr_sensors["cht"] += 38.0 + prog * 28.0
+            curr_sensors["egt"] += 75.0 + prog * 45.0
+            curr_sensors["oil_temperature"] += 20.0 + prog * 16.0
+            health_index -= (38.0 + prog * 22.0)
             
-        elif scenario == "Oil_Pressure_Loss" and tick > 3:
-            curr_sensors["oil_pressure"] -= degradation * 28.0
-            curr_sensors["oil_temperature"] += degradation * 22.0
-            curr_sensors["vibration"] += degradation * 0.45
-            health_index -= degradation * 45.0
+        elif scenario in ["Oil_Pressure_Loss", "Lubrication"]:
+            curr_sensors["oil_pressure"] -= (35.0 + prog * 15.0)
+            curr_sensors["oil_temperature"] += 18.0 + prog * 14.0
+            curr_sensors["vibration"] += 0.40 + prog * 0.40
+            health_index -= (46.0 + prog * 24.0)
             
-        elif scenario == "RPM_Drop" and tick > 3:
-            curr_sensors["rpm"] -= degradation * 550.0
-            curr_sensors["fuel_flow"] -= degradation * 4.2
-            health_index -= degradation * 30.0
+        elif scenario == "RPM_Drop":
+            curr_sensors["rpm"] -= (450.0 + prog * 250.0)
+            curr_sensors["fuel_flow"] -= (4.0 + prog * 2.0)
+            health_index -= (34.0 + prog * 22.0)
             
-        elif scenario == "High_Vibration" and tick > 3:
-            curr_sensors["vibration"] += degradation * 1.15
-            health_index -= degradation * 28.0
+        elif scenario in ["High_Vibration", "Vibration_Fault"]:
+            curr_sensors["vibration"] += (1.05 + prog * 0.65)
+            health_index -= (38.0 + prog * 22.0)
             
-        elif scenario == "Sensor_Fault_CHT" and tick > 3:
-            # Single sensor bias: CHT spikes without engine degradation
-            curr_sensors["cht"] = 215.0 + random.gauss(0, 4)
-            health_index -= 4.0
+        elif scenario in ["Sensor_Fault_CHT", "Sensor_Fault_Temp"]:
+            # Single sensor anomaly: CHT thermocouple spikes to 228°C while engine is healthy
+            curr_sensors["cht"] = 228.0 + random.gauss(0, 3.0) + prog * 6.0
+            health_index -= (22.0 + prog * 8.0)
             
-        elif scenario == "Engine_Failure_Multi" and tick > 3:
-            curr_sensors["rpm"] -= degradation * 600.0
-            curr_sensors["cht"] += degradation * 55.0
-            curr_sensors["egt"] += degradation * 110.0
-            curr_sensors["oil_pressure"] -= degradation * 25.0
-            curr_sensors["oil_temperature"] += degradation * 30.0
-            curr_sensors["vibration"] += degradation * 0.8
-            curr_sensors["fuel_flow"] += degradation * 5.0
-            health_index -= degradation * 55.0
+        elif scenario == "Sensor_Drift":
+            curr_sensors["cht"] += (28.0 + prog * 32.0)
+            health_index -= (25.0 + prog * 20.0)
+            
+        elif scenario == "Injector_Degradation":
+            curr_sensors["fuel_flow"] += (7.0 + prog * 4.0)
+            curr_sensors["egt"] += (68.0 + prog * 42.0)
+            curr_sensors["rpm"] += random.gauss(0, 45.0 + prog * 70.0)
+            health_index -= (38.0 + prog * 22.0)
+            
+        elif scenario == "Misfire":
+            curr_sensors["rpm"] -= (320.0 + random.uniform(-60.0, 60.0))
+            curr_sensors["vibration"] += (0.75 + prog * 0.45)
+            curr_sensors["egt"] -= (45.0 + prog * 30.0)
+            health_index -= (40.0 + prog * 22.0)
+            
+        elif scenario == "Engine_Failure_Multi":
+            curr_sensors["rpm"] -= (620.0 + prog * 250.0)
+            curr_sensors["cht"] += (55.0 + prog * 25.0)
+            curr_sensors["egt"] += (110.0 + prog * 45.0)
+            curr_sensors["oil_pressure"] -= (36.0 + prog * 15.0)
+            curr_sensors["oil_temperature"] += (26.0 + prog * 15.0)
+            curr_sensors["vibration"] += (1.10 + prog * 0.50)
+            curr_sensors["fuel_flow"] += (7.0 + prog * 3.0)
+            health_index -= (68.0 + prog * 16.0)
 
         health_index = max(8.0, min(99.0, health_index))
 
@@ -286,7 +306,7 @@ class TelemetryProcessor:
             recommended_action = "Engine temperatures are elevated. Reduce throttle to 60%, level off, and monitor cylinder head cooling."
             status_label = "THERMAL CAUTION"
             guidance = "Maintain airspeed above 85 KIAS to optimize ram-air cooling through radiator baffles until temperatures stabilize."
-        elif scenario == "Oil_Pressure_Loss":
+        elif scenario in ["Oil_Pressure_Loss", "Lubrication"]:
             risk_level = "CRITICAL"
             anomaly_state = "ALERT"
             recommended_action = "Low oil pressure warning. Reduce engine power and divert to the nearest available airfield."
@@ -298,12 +318,18 @@ class TelemetryProcessor:
             recommended_action = "Uncommanded engine power drop detected. Verify throttle lever and monitor governor response."
             status_label = "POWER ADVISORY"
             guidance = "Check fuel flow and auxiliary pump status. Maintain safe glide airspeed while diagnosing governor response."
-        elif scenario == "High_Vibration":
+        elif scenario in ["High_Vibration", "Vibration_Fault"]:
             risk_level = "HIGH"
             anomaly_state = "CAUTION"
             recommended_action = "Elevated airframe vibration detected. Adjust RPM away from resonant band and inspect propeller on landing."
             status_label = "MECHANICAL CAUTION"
             guidance = "Avoid operating between 2,200 and 2,400 RPM. Restrict continuous power to prevent mechanical fatigue."
+        elif scenario == "Injector_Degradation":
+            risk_level = "MEDIUM"
+            anomaly_state = "CAUTION"
+            recommended_action = "Warning: Fuel Injector Delivery Degradation. Monitor fuel consumption vs endurance margin."
+            status_label = "COMBUSTION CAUTION"
+            guidance = "Abnormal fuel flow observed. Schedule injector ultrasonic cleaning at next turnaround."
         elif scenario == "Misfire":
             risk_level = "MEDIUM"
             anomaly_state = "CAUTION"
