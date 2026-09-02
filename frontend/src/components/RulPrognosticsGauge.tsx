@@ -26,13 +26,13 @@ export default function RulPrognosticsGauge({ prognostics }: RulPrognosticsGauge
     zoneLabel = "DEGRADING";
   }
 
-  // Semi-circle SVG math (180 degree arc)
+  // Semi-circle SVG math (180 degree arc from left 0 to right 250)
   const radius = 88;
   const circumference = Math.PI * radius;
   const strokeDashoffset = circumference * (1 - rulRatio);
   
-  // Angle for needle/indicator (-180 to 0 degrees)
-  const rotationAngle = -180 + rulRatio * 180;
+  // Angle for needle/indicator: 0 deg points left (0 cycles), 180 deg points right (250 cycles)
+  const rotationAngle = rulRatio * 180;
 
   return (
     <div className="panel rul-centerpiece-panel">
@@ -100,6 +100,7 @@ export default function RulPrognosticsGauge({ prognostics }: RulPrognosticsGauge
               {/* Needle Hub & Pointer */}
               <g transform={`translate(110, 110) rotate(${rotationAngle})`}>
                 <line x1="0" y1="0" x2="-80" y2="0" stroke={zoneColor} strokeWidth="3" strokeLinecap="round" />
+                <polygon points="-84,0 -76,-3.5 -76,3.5" fill={zoneColor} />
                 <circle cx="0" cy="0" r="7" fill="#0f172a" stroke={zoneColor} strokeWidth="3" />
               </g>
 

@@ -18,12 +18,12 @@ export default function MainDashboardView({
   onInjectScenario,
   onNavigate,
 }: MainDashboardViewProps) {
-  const safeHealth = Math.min(100, Math.max(0, Math.round(payload.health_index || 72)));
+  const safeHealth = Math.min(100, Math.max(0, Math.round(payload.health_index ?? 96)));
   const currentRul = Math.round(payload.prognostics?.predicted_rul || 117);
   const trend = payload.prognostics?.degradation_trend || "Stable";
-  const riskLevel = payload.risk?.level || "MEDIUM";
+  const riskLevel = payload.risk?.level || "LOW";
   const anomalyState = payload.risk?.anomaly || "NORMAL";
-  const actionText = payload.risk?.action || "Monitor Closely";
+  const actionText = payload.risk?.action || "Nominal Cruise Profile - All Systems Normal";
 
   // Active top alert (most recent high-priority alert)
   const activeAlert = payload.alerts && payload.alerts.length > 0 ? payload.alerts[0] : null;
@@ -234,13 +234,19 @@ export default function MainDashboardView({
       {/* 4. BOTTOM: ACTIVE ALERT / IMPORTANT EVENT */}
       {activeAlert && (
         <div
-          className={`dashboard-active-alert-bar ${activeAlert.level === "ALERT" ? "alert-bar-crit" : "alert-bar-warn"}`}
+          className={`dashboard-active-alert-bar ${
+            activeAlert.level === "ALERT"
+              ? "alert-bar-crit"
+              : activeAlert.level === "CAUTION"
+              ? "alert-bar-warn"
+              : "alert-bar-nom"
+          }`}
           onClick={() => onNavigate("alerts")}
           title="Click to open full Alerts log"
         >
           <div className="alert-bar-left">
             <span className="alert-bar-icon">
-              {activeAlert.level === "ALERT" ? "🚨" : "⚠️"}
+              {activeAlert.level === "ALERT" ? "🚨" : activeAlert.level === "CAUTION" ? "⚠️" : "🟢"}
             </span>
             <div className="alert-bar-content">
               <div className="alert-bar-title">

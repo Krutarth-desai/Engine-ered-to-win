@@ -48,23 +48,23 @@ class TelemetryProcessor:
         # Prepopulate initial 30 cycles for immediate visual realism
         self._init_history()
         
-        # Dynamic alerts memory
+        # Dynamic alerts memory (Nominal baseline when no fault is injected)
         self.alert_feed: List[Dict[str, Any]] = [
             {
-                "id": "alt-3",
+                "id": "alt-1",
                 "level": "NORMAL",
                 "title": "ALL SYSTEMS NOMINAL",
                 "message": "Telemetry parity verified across 9 sensor channels.",
-                "time_ago": "5 min ago",
-                "timestamp": (datetime.now() - timedelta(minutes=5)).isoformat()
+                "time_ago": "Just now",
+                "timestamp": datetime.now().isoformat()
             },
             {
                 "id": "alt-2",
                 "level": "INFO",
-                "title": "VIBRATION NOMINAL",
+                "title": "VIBRATION & COMBUSTION NOMINAL",
                 "message": "Dynamic harmonics within standard rotational cruise envelope.",
-                "time_ago": "3 min ago",
-                "timestamp": (datetime.now() - timedelta(minutes=3)).isoformat()
+                "time_ago": "2 min ago",
+                "timestamp": (datetime.now() - timedelta(minutes=2)).isoformat()
             }
         ]
 
@@ -126,7 +126,8 @@ class TelemetryProcessor:
             "injection_timing": self.base_sensors["injection_timing"] + random.gauss(0, 0.15)
         }
         
-        health_index = 72.0 - (self.cycle / self.max_useful_life) * 15.0
+        # In nominal cruise without injected faults, health index is 96-98%
+        health_index = 96.0 - (self.cycle / self.max_useful_life) * 4.0
         
         # 2. Inject scenarios
         if scenario == "Overheating" and tick > 3:
@@ -260,25 +261,30 @@ class TelemetryProcessor:
         }
 
         # 5. Risk & Decision Engine
-        has_alert_sensor = any(s["status"] == "ALERT" for s in sensor_list)
-        has_caution_sensor = any(s["status"] == "CAUTION" for s in sensor_list)
-        
-        if health_index < 35 or has_alert_sensor or scenario in ["Engine_Failure_Multi", "Oil_Pressure_Loss"]:
-            risk_level = "CRITICAL"
-            anomaly_state = "ALERT"
-            recommended_action = "Initiate emergency procedures. Divert immediately."
-        elif health_index < 60 or has_caution_sensor or scenario in ["Overheating", "High_Vibration", "RPM_Drop"]:
-            risk_level = "HIGH"
-            anomaly_state = "CAUTION"
-            recommended_action = "Enrich mixture, limit throttle <65%, monitor closely."
-        elif health_index < 75 or degradation_trend == "Increasing":
-            risk_level = "MEDIUM"
-            anomaly_state = "NORMAL"
-            recommended_action = "Monitor Closely"
+        # STRICT RULE: Show anomaly ONLY when injected from the fault matrix
+        if scenario != "Normal":
+            if scenario in ["Engine_Failure_Multi", "Oil_Pressure_Loss"]:
+                risk_level = "CRITICAL"
+                anomaly_state = "ALERT"
+                recommended_action = "Initiate emergency procedures. Divert immediately."
+            elif scenario in ["Overheating", "High_Vibration", "RPM_Drop"]:
+                risk_level = "HIGH"
+                anomaly_state = "CAUTION"
+                recommended_action = "Enrich mixture, limit throttle <65%, monitor closely."
+            elif scenario in ["Sensor_Fault_CHT", "Sensor_Fault_Temp", "Sensor_Drift", "Misfire"]:
+                risk_level = "MEDIUM"
+                anomaly_state = "CAUTION"
+                recommended_action = "Sensor discrepancy detected. Cross-channel isolation active."
+            else:
+                has_alert_sensor = any(s["status"] == "ALERT" for s in sensor_list)
+                risk_level = "CRITICAL" if has_alert_sensor else "HIGH"
+                anomaly_state = "ALERT" if has_alert_sensor else "CAUTION"
+                recommended_action = "Investigate anomaly. Follow operational checklist."
         else:
+            # Strictly nominal when running without fault injection
             risk_level = "LOW"
             anomaly_state = "NORMAL"
-            recommended_action = "Continue planned mission profile"
+            recommended_action = "Nominal Cruise Profile - All Systems Normal"
 
         risk_data = {
             "level": risk_level,
@@ -372,42 +378,47 @@ class TelemetryProcessor:
             self.trajectory_history[-1]["predicted_rul"] = rul_unclipped
 
         # 9. Dynamic PHM Alerts Feed Generation
-        if curr_sensors["egt"] > 680 and not any("EGT" in a["title"] for a in self.alert_feed[:2]):
-            self.alert_feed.insert(0, {
-                "id": f"alt-{len(self.alert_feed)+1}",
-                "level": "CAUTION" if curr_sensors["egt"] < 750 else "ALERT",
-                "title": "ELEVATED EGT TREND",
-                "message": f"EGT rising faster than baseline ({curr_sensors['egt']:.1f} °C).",
-                "time_ago": "Just now",
-                "timestamp": datetime.now().isoformat()
-            })
-        if curr_sensors["vibration"] > 2.0 and not any("VIBRATION" in a["title"] for a in self.alert_feed[:2]):
-            self.alert_feed.insert(0, {
-                "id": f"alt-{len(self.alert_feed)+1}",
-                "level": "CAUTION" if curr_sensors["vibration"] < 2.8 else "ALERT",
-                "title": "VIBRATION INCREASING",
-                "message": f"Vibration harmonics elevated to {curr_sensors['vibration']:.2f} g. Monitor bearing & valve train.",
-                "time_ago": "Just now",
-                "timestamp": datetime.now().isoformat()
-            })
-        if curr_sensors["oil_pressure"] < 50 and not any("OIL" in a["title"] for a in self.alert_feed[:2]):
-            self.alert_feed.insert(0, {
-                "id": f"alt-{len(self.alert_feed)+1}",
-                "level": "ALERT",
-                "title": "LOW OIL PRESSURE",
-                "message": f"Oil pressure dropped to {curr_sensors['oil_pressure']:.1f} psi. Lubrication film at risk.",
-                "time_ago": "Just now",
-                "timestamp": datetime.now().isoformat()
-            })
-        if predicted_rul < 30 and not any("RUL" in a["title"] for a in self.alert_feed[:2]):
-            self.alert_feed.insert(0, {
-                "id": f"alt-{len(self.alert_feed)+1}",
-                "level": "ALERT",
-                "title": "LOW REMAINING USEFUL LIFE",
-                "message": f"RUL estimate critical ({predicted_rul:.0f} cycles left). Plan immediate recovery.",
-                "time_ago": "Just now",
-                "timestamp": datetime.now().isoformat()
-            })
+        if scenario != "Normal":
+            if curr_sensors["egt"] > 680 and not any("EGT" in a["title"] for a in self.alert_feed[:2]):
+                self.alert_feed.insert(0, {
+                    "id": f"alt-{len(self.alert_feed)+1}",
+                    "level": "CAUTION" if curr_sensors["egt"] < 750 else "ALERT",
+                    "title": "ELEVATED EGT TREND",
+                    "message": f"EGT rising faster than baseline ({curr_sensors['egt']:.1f} °C).",
+                    "time_ago": "Just now",
+                    "timestamp": datetime.now().isoformat()
+                })
+            if curr_sensors["vibration"] > 2.0 and not any("VIBRATION" in a["title"] for a in self.alert_feed[:2]):
+                self.alert_feed.insert(0, {
+                    "id": f"alt-{len(self.alert_feed)+1}",
+                    "level": "CAUTION" if curr_sensors["vibration"] < 2.8 else "ALERT",
+                    "title": "VIBRATION INCREASING",
+                    "message": f"Vibration harmonics elevated to {curr_sensors['vibration']:.2f} g. Monitor bearing & valve train.",
+                    "time_ago": "Just now",
+                    "timestamp": datetime.now().isoformat()
+                })
+            if curr_sensors["oil_pressure"] < 50 and not any("OIL" in a["title"] for a in self.alert_feed[:2]):
+                self.alert_feed.insert(0, {
+                    "id": f"alt-{len(self.alert_feed)+1}",
+                    "level": "ALERT",
+                    "title": "LOW OIL PRESSURE",
+                    "message": f"Oil pressure dropped to {curr_sensors['oil_pressure']:.1f} psi. Lubrication film at risk.",
+                    "time_ago": "Just now",
+                    "timestamp": datetime.now().isoformat()
+                })
+            if predicted_rul < 30 and not any("RUL" in a["title"] for a in self.alert_feed[:2]):
+                self.alert_feed.insert(0, {
+                    "id": f"alt-{len(self.alert_feed)+1}",
+                    "level": "ALERT",
+                    "title": "LOW REMAINING USEFUL LIFE",
+                    "message": f"RUL estimate critical ({predicted_rul:.0f} cycles left). Plan immediate recovery.",
+                    "time_ago": "Just now",
+                    "timestamp": datetime.now().isoformat()
+                })
+        else:
+            # If scenario is Normal, reset alerts to nominal state
+            if any(a["level"] in ["ALERT", "CAUTION"] for a in self.alert_feed):
+                self._init_alerts()
 
         # Keep alerts to max 10
         self.alert_feed = self.alert_feed[:10]
