@@ -56,8 +56,11 @@ class AeroTwinAnomalyDetector:
         if not self.is_trained:
             return False, 1.0
 
-        # Extract features
-        X = [[telemetry.get(f, self.baselines[f]) for f in self.features]]
+        # Extract features as DataFrame with feature names to match model training
+        X = pd.DataFrame(
+            [[telemetry.get(f, self.baselines[f]) for f in self.features]],
+            columns=self.features
+        )
         
         # Predict: 1 for normal, -1 for anomaly
         prediction = self.model.predict(X)[0]

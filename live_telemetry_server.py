@@ -1,3 +1,8 @@
+import os
+# Suppress TensorFlow oneDNN and verbose C++ logs
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import asyncio
 import json
 import numpy as np
@@ -9,7 +14,6 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-import os
 import io
 import base64
 import matplotlib
@@ -1968,6 +1972,58 @@ DASHBOARD_HTML = """
                         <canvas id="telemetryChart"></canvas>
                     </div>
                 </div>
+
+                <!-- ===== SENSOR vs ENGINE DIAGNOSIS PANEL (LEFT COLUMN) ===== -->
+                <div class="panel" id="sensor-diag-section">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <span>🔬</span> SENSOR VS ENGINE DIAGNOSIS
+                        </span>
+                        <span id="diag-diagnosis-badge" class="diag-diagnosis-badge diag-badge-normal">NORMAL</span>
+                    </div>
+
+                    <!-- Suspected Sensor -->
+                    <div class="diag-suspected-sensor" id="diag-suspected-row" style="display: none; padding: 0 0.5rem;">
+                        <span class="diag-suspected-label">Suspected Sensor:</span>
+                        <span class="diag-suspected-val" id="diag-suspected-val">—</span>
+                    </div>
+
+                    <!-- Confidence Scores -->
+                    <div class="diag-confidence-row">
+                        <div class="diag-conf-item">
+                            <div class="diag-conf-label">SENSOR FAULT CONF.</div>
+                            <div class="diag-conf-val" id="diag-sensor-conf" style="color: var(--accent-amber);">0%</div>
+                        </div>
+                        <div class="diag-conf-item">
+                            <div class="diag-conf-label">ENGINE FAULT CONF.</div>
+                            <div class="diag-conf-val" id="diag-engine-conf" style="color: var(--accent-rose);">0%</div>
+                        </div>
+                        <div class="diag-conf-item">
+                            <div class="diag-conf-label">PERSISTENCE</div>
+                            <div class="diag-conf-val" id="diag-persistence" style="color: var(--accent-cyan);">0/5</div>
+                        </div>
+                    </div>
+
+                    <!-- Sensor Anomaly Score Bars -->
+                    <div class="diag-section-header" style="margin-top: 0.85rem; padding: 0 0.2rem;">
+                        <span>Sensor Anomaly Scores</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-cyan);">Cross-Prediction σ</span>
+                    </div>
+                    <div class="sensor-bars-container" id="sensor-bars-container">
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">RPM</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-rpm" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-rpm">0.0</span></div>
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">CHT</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-cht_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-cht_c">0.0</span></div>
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">EGT</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-egt_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-egt_c">0.0</span></div>
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">OIL P</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-oil_pressure_bar" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-oil_pressure_bar">0.0</span></div>
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">OIL T</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-oil_temperature_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-oil_temperature_c">0.0</span></div>
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">FUEL</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-fuel_flow_lh" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-fuel_flow_lh">0.0</span></div>
+                        <div class="sensor-bar-row"><span class="sensor-bar-label">VIB</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-vibration_g" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-vibration_g">0.0</span></div>
+                    </div>
+
+                    <!-- Evidence -->
+                    <div class="diag-evidence-box" id="diag-evidence">
+                        All engine sensors operating within expected cross-predicted relationships. No sensor or engine anomaly detected.
+                    </div>
+                </div>
             </div>
 
             <!-- RIGHT HALF: Digital Twin Predictive Diagnostics -->
@@ -2102,57 +2158,6 @@ DASHBOARD_HTML = """
                         <span style="color: var(--accent-cyan); font-weight: 700;">PHM LOG:</span>
                         <span id="diag-log-text">Physics-informed digital twin estimation in progress...</span>
                     </div>
-
-                    <!-- ===== SENSOR vs ENGINE DIAGNOSIS PANEL ===== -->
-                    <div class="diag-diagnosis-section" id="sensor-diag-section">
-                        <div class="diag-section-header">
-                            <span>🔬 Sensor vs Engine Diagnosis</span>
-                            <span id="diag-diagnosis-badge" class="diag-diagnosis-badge diag-badge-normal">NORMAL</span>
-                        </div>
-
-                        <!-- Suspected Sensor -->
-                        <div class="diag-suspected-sensor" id="diag-suspected-row" style="display: none;">
-                            <span class="diag-suspected-label">Suspected Sensor:</span>
-                            <span class="diag-suspected-val" id="diag-suspected-val">—</span>
-                        </div>
-
-                        <!-- Confidence Scores -->
-                        <div class="diag-confidence-row">
-                            <div class="diag-conf-item">
-                                <div class="diag-conf-label">Sensor Fault Conf.</div>
-                                <div class="diag-conf-val" id="diag-sensor-conf" style="color: var(--accent-amber);">0%</div>
-                            </div>
-                            <div class="diag-conf-item">
-                                <div class="diag-conf-label">Engine Fault Conf.</div>
-                                <div class="diag-conf-val" id="diag-engine-conf" style="color: var(--accent-rose);">0%</div>
-                            </div>
-                            <div class="diag-conf-item">
-                                <div class="diag-conf-label">Persistence</div>
-                                <div class="diag-conf-val" id="diag-persistence" style="color: var(--accent-cyan);">0/5</div>
-                            </div>
-                        </div>
-
-                        <!-- Sensor Anomaly Score Bars -->
-                        <div class="diag-section-header" style="margin-top: 0.6rem;">
-                            <span>Sensor Anomaly Scores</span>
-                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--accent-cyan);">Cross-Prediction σ</span>
-                        </div>
-                        <div class="sensor-bars-container" id="sensor-bars-container">
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">RPM</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-rpm" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-rpm">0.0</span></div>
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">CHT</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-cht_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-cht_c">0.0</span></div>
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">EGT</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-egt_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-egt_c">0.0</span></div>
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">OIL P</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-oil_pressure_bar" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-oil_pressure_bar">0.0</span></div>
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">OIL T</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-oil_temperature_c" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-oil_temperature_c">0.0</span></div>
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">FUEL</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-fuel_flow_lh" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-fuel_flow_lh">0.0</span></div>
-                            <div class="sensor-bar-row"><span class="sensor-bar-label">VIB</span><div class="sensor-bar-track"><div class="sensor-bar-fill" id="sbar-vibration_g" style="width: 2%;"></div></div><span class="sensor-bar-score" id="sscore-vibration_g">0.0</span></div>
-                        </div>
-
-                        <!-- Evidence -->
-                        <div class="diag-evidence-box" id="diag-evidence">
-                            All engine sensors operating within expected cross-predicted relationships. No sensor or engine anomaly detected.
-                        </div>
-                    </div>
-                    <!-- ===== END SENSOR DIAGNOSIS PANEL ===== -->
                 </div>
             </div>
         </div>
