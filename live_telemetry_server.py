@@ -25,6 +25,7 @@ from supabase import create_client, Client
 
 from src.predictive_maintenance import AeroTwinAnomalyDetector
 from src.sensor_diagnosis import SensorDiagnosisEngine
+from src.unified_telemetry import TelemetryProcessor
 
 # Load environment variables from .env file
 load_dotenv()
@@ -115,6 +116,7 @@ sensor_diagnosis_engine = SensorDiagnosisEngine(
     persistence_window=5,
     model_path="models/sensor_cross_models.pkl"
 )
+telemetry_processor = TelemetryProcessor()
 recent_telemetry_buffer = []  # Store recent telemetry for regression plot
 
 class ConnectionManager:
@@ -270,47 +272,80 @@ async def simulation_loop():
     """Background task that ticks the simulation and broadcasts data at 1 Hz."""
     while True:
         if simulation_state["is_running"] and len(manager.active_connections) > 0:
-            data = generate_live_data_tick(simulation_state["tick"], simulation_state["scenario"])
+            # 1. Generate 3-Layer Unified Telemetry & Prognostics Payload
+            unified_data = telemetry_processor.process_tick(
+                simulation_state["tick"],
+                simulation_state["scenario"],
+                simulation_state
+            )
             
-            # --- Predictive Maintenance Pipeline ---
-            is_anomaly, score = anomaly_detector.detect(data)
-            fault_info = anomaly_detector.infer_fault(data, is_anomaly, score)
-            data.update(fault_info)
-            data["anomaly_score"] = score
+            # 2. Flatten for legacy compatibility & Scikit-learn Anomaly Detection
+            rpm_val = unified_data["sensors"]["rpm"]["value"]
+            cht_val = unified_data["sensors"]["cht"]["value"]
+            egt_val = unified_data["sensors"]["egt"]["value"]
+            oil_p_bar = round(unified_data["sensors"]["oil_pressure"]["value"] / 14.5038, 2)
+            oil_t_val = unified_data["sensors"]["oil_temperature"]["value"]
+            fuel_val = unified_data["sensors"]["fuel_flow"]["value"]
+            vib_val = unified_data["sensors"]["vibration"]["value"]
+            voltage_val = unified_data["sensors"]["bus_voltage"]["value"]
+            timing_val = unified_data["sensors"]["injection_timing"]["value"]
             
-            # --- Sensor vs Engine Diagnosis Pipeline ---
+            flat_telemetry = {
+                "timestamp": unified_data["timestamp"],
+                "engine_id": "ENG_001",
+                "mission_id": "ISR_PATROL_27",
+                "scenario": simulation_state["scenario"],
+                "tick": simulation_state["tick"],
+                "rpm": rpm_val,
+                "cht_c": cht_val,
+                "egt_c": egt_val,
+                "oil_pressure_bar": oil_p_bar,
+                "oil_temperature_c": oil_t_val,
+                "fuel_flow_lh": fuel_val,
+                "vibration_g": vib_val,
+                "battery_voltage_v": voltage_val,
+                "injection_timing_deg": timing_val,
+                "health_index": unified_data["health_index"],
+                "rul": unified_data["prognostics"]["predicted_rul"],
+                "fault_label": unified_data["fault_label"]
+            }
+            
+            # 3. Anomaly & Sensor-vs-Engine Cross-Diagnosis Pipeline
+            is_anomaly, score = anomaly_detector.detect(flat_telemetry)
+            fault_info = anomaly_detector.infer_fault(flat_telemetry, is_anomaly, score)
+            flat_telemetry.update(fault_info)
+            flat_telemetry["anomaly_score"] = score
+            
             diag_result = sensor_diagnosis_engine.diagnose(
-                data,
+                flat_telemetry,
                 is_isolation_forest_anomaly=is_anomaly,
                 isolation_forest_score=score
             )
-            data["sensor_diagnosis"] = diag_result
+            flat_telemetry["sensor_diagnosis"] = diag_result
             
-            # If sensor failure is suspected, override treatment recommendation
+            # Merge flat fields into unified_data so all components can access whichever they need
+            unified_data.update(flat_telemetry)
+            unified_data["sensor_diagnosis"] = diag_result
+            
+            # If sensor failure is suspected, enhance diagnosis evidence
             if diag_result["diagnosis_type"] == "POSSIBLE_SENSOR_FAILURE" and diag_result["suspected_sensor"]:
                 sensor_name = diag_result["suspected_sensor"]
-                data["prevention"] = (
-                    f"SENSOR DIAGNOSIS: Possible {sensor_name} sensor malfunction detected. "
-                    f"Check sensor wiring, calibration, and connector integrity. "
-                    f"Replace sensor if fault persists. Engine core appears healthy."
-                )
+                unified_data["risk"]["anomaly"] = "CAUTION"
+                unified_data["risk"]["action"] = f"Check {sensor_name} sensor circuit & wiring."
             elif diag_result["diagnosis_type"] == "POSSIBLE_ENGINE_FAILURE":
-                data["prevention"] = (
-                    f"ENGINE DIAGNOSIS: Multiple sensor anomalies detected simultaneously. "
-                    f"Affected: {', '.join(diag_result['affected_sensors'])}. "
-                    f"Proceed with engine fault prediction and preventive maintenance protocol."
-                )
+                unified_data["risk"]["anomaly"] = "ALERT"
+                unified_data["risk"]["action"] = f"Multiple sensors anomalous ({', '.join(diag_result['affected_sensors'])}). Reduce power immediately."
             
-            # Log anomaly to Supabase if it's not normal
-            if supabase_client and fault_info["status"] != "Normal":
+            # 4. Optional Supabase anomaly logging
+            if supabase_client and fault_info.get("status") != "Normal":
                 anomaly_record = {
-                    "engine_id": "Engine-1",
+                    "engine_id": "UAV_ENG_001",
                     "anomaly_score": float(score),
-                    "severity": fault_info["severity"],
-                    "fault_type": fault_info["fault"],
-                    "evidence": fault_info["evidence"],
-                    "treatment_action": fault_info["treatment"],
-                    "prevention_action": fault_info["prevention"],
+                    "severity": fault_info.get("severity", "MEDIUM"),
+                    "fault_type": fault_info.get("fault", "Operational Alert"),
+                    "evidence": fault_info.get("evidence", ""),
+                    "treatment_action": unified_data["risk"]["action"],
+                    "prevention_action": fault_info.get("prevention", ""),
                     "diagnosis_type": diag_result["diagnosis_type"],
                     "diagnosis_confidence": max(
                         diag_result["sensor_fault_confidence"],
@@ -320,22 +355,20 @@ async def simulation_loop():
                     "affected_sensors": json.dumps(diag_result.get("affected_sensors", [])),
                     "sensor_anomaly_scores": json.dumps(diag_result.get("sensor_scores", {}))
                 }
-                # Run in background to prevent blocking the WebSocket loop
                 def push_to_supabase(record):
                     try:
                         supabase_client.table("telemetry_anomalies").insert(record).execute()
                     except Exception as e:
-                        print(f"[Supabase] Failed to log anomaly: {e}")
-                
+                        pass
                 asyncio.create_task(asyncio.to_thread(push_to_supabase, anomaly_record))
             
             # Buffer for regression plot
-            recent_telemetry_buffer.append(data)
+            recent_telemetry_buffer.append(flat_telemetry)
             if len(recent_telemetry_buffer) > 100:
                 recent_telemetry_buffer.pop(0)
-            # ---------------------------------------
 
-            await manager.broadcast(json.dumps(data))
+            # Broadcast unified packet
+            await manager.broadcast(json.dumps(unified_data))
             simulation_state["tick"] += 1
         await asyncio.sleep(1.0)
 

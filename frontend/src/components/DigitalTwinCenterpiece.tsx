@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { TelemetryData } from "@/types/telemetry";
 
 interface DigitalTwinCenterpieceProps {
-  telemetry: TelemetryData | null;
+  telemetry: any;
   activeScenario: string;
   onInjectScenario: (scenario: string) => void;
 }
@@ -17,9 +17,9 @@ export default function DigitalTwinCenterpiece({
   const [viewMode, setViewMode] = useState<"full" | "engine" | "thermal">("full");
   const [tooltip, setTooltip] = useState<{ title: string; desc: string } | null>(null);
 
-  const rpm = telemetry?.rpm ?? 6100;
+  const rpm = telemetry?.rpm ?? telemetry?.sensors?.rpm?.value ?? 2450;
   const spinPeriod = Math.max(0.08, 60 / Math.max(rpm, 1000));
-  const scenario = telemetry?.fault_label || activeScenario || "Normal";
+  const scenario = telemetry?.fault_label || telemetry?.scenario || activeScenario || "Normal";
   const health = telemetry ? Math.max(Math.min(telemetry.health_index, 100), 0) : 100;
 
   // Compute SVG transform based on camera view mode
@@ -81,17 +81,18 @@ export default function DigitalTwinCenterpiece({
     anomalyTitle = `COMBUSTION DEGRADATION: FUEL FLOW ${(telemetry?.fuel_flow_lh ?? 18.5).toFixed(1)} L/H`;
     anomalyTitleColor = "#f59e0b";
     anomalyPart = "HOTSPOT: HIGH-PRESSURE FUEL INJECTION RAIL";
-  } else if (scenario === "Lubrication") {
+  } else if (scenario === "Lubrication" || scenario === "Oil_Pressure_Loss") {
     elOilClass = "part-critical";
     elEngineClass = "part-warning";
 
     reticleVisible = true;
     reticlePos = { cx: 373, cy: 135 };
     dotColor = "#ef4444";
-    anomalyTitle = `HYDRAULIC ANOMALY: OIL PRESSURE CRITICAL (${(telemetry?.oil_pressure_bar ?? 4.3).toFixed(2)} BAR)`;
+    const oilP = telemetry?.oil_pressure_bar ?? (telemetry?.sensors?.oil_pressure?.value ? (telemetry.sensors.oil_pressure.value / 14.5).toFixed(2) : "2.8");
+    anomalyTitle = `HYDRAULIC ANOMALY: OIL PRESSURE CRITICAL (${oilP} BAR)`;
     anomalyTitleColor = "#ef4444";
     anomalyPart = "HOTSPOT: LUBRICATION SUMP & OIL SCAVENGE PUMP";
-  } else if (scenario === "Vibration_Fault") {
+  } else if (scenario === "Vibration_Fault" || scenario === "High_Vibration") {
     elPropFill = "#f59e0b";
     elEngineClass = "part-warning";
     mountFills = ["#ef4444", "#ef4444", "#ef4444", "#ef4444"];
@@ -99,7 +100,8 @@ export default function DigitalTwinCenterpiece({
     reticleVisible = true;
     reticlePos = { cx: 350, cy: 135 };
     dotColor = "#f59e0b";
-    anomalyTitle = `MECHANICAL ANOMALY: VIBRATION SPIKE (${(telemetry?.vibration_g ?? 0.2).toFixed(3)} g RMS)`;
+    const vib = telemetry?.vibration_g ?? telemetry?.sensors?.vibration?.value ?? 2.4;
+    anomalyTitle = `MECHANICAL ANOMALY: VIBRATION SPIKE (${vib.toFixed(3)} g RMS)`;
     anomalyTitleColor = "#f59e0b";
     anomalyPart = "HOTSPOT: CRANKSHAFT & DYNAFOCAL ENGINE MOUNTS";
   } else if (scenario === "Sensor_Drift") {
@@ -122,13 +124,13 @@ export default function DigitalTwinCenterpiece({
     anomalyTitle = `IGNITION FAULT: INTERMITTENT CYLINDER MISFIRE`;
     anomalyTitleColor = "#ef4444";
     anomalyPart = "HOTSPOT: CYLINDER #1 SPARK & EXHAUST RUNNER";
-  } else if (scenario === "Sensor_Fault_Temp") {
+  } else if (scenario === "Sensor_Fault_Temp" || scenario === "Sensor_Fault_CHT") {
     elAvionicsClass = "part-critical";
 
     reticleVisible = true;
     reticlePos = { cx: 85, cy: 135 };
     dotColor = "#f59e0b";
-    anomalyTitle = `SENSOR ISOLATION: CHT SENSOR FAULT DETECTED (${(telemetry?.cht_c ?? 350).toFixed(1)}°C) — ENGINE HEALTHY`;
+    anomalyTitle = `SENSOR ISOLATION: CHT SENSOR FAULT DETECTED (${(telemetry?.cht_c ?? 215).toFixed(1)}°C) — ENGINE HEALTHY`;
     anomalyTitleColor = "#f59e0b";
     anomalyPart = "DIAGNOSIS: ISOLATED SENSOR MALFUNCTION — NOT AN ENGINE FAULT";
   } else if (scenario === "Engine_Failure_Multi") {

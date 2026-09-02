@@ -5,73 +5,67 @@ import React from "react";
 interface HeaderProps {
   userEmail: string;
   isConnected: boolean;
-  isRulView: boolean;
-  onToggleRulView: () => void;
+  vehicleId?: string;
+  missionId?: string;
+  altitude?: number;
+  throttle?: number;
+  remainingTimeStr?: string;
   onLogout: () => void;
 }
 
 export default function Header({
   userEmail,
   isConnected,
-  isRulView,
-  onToggleRulView,
+  vehicleId = "UAV_ENG_001",
+  missionId = "ISR_PATROL_27",
+  altitude = 15000,
+  throttle = 75,
+  remainingTimeStr = "01:57:32",
   onLogout,
 }: HeaderProps) {
   return (
-    <header id="app-header">
+    <header id="app-header" className="gcs-mission-header">
+      {/* Left: Mission Brand */}
       <div className="brand">
-        <div className="logo-badge">AEROTWIN</div>
+        <div className="logo-badge">✈️ AEROTWIN</div>
         <div>
           <div className="brand-title">MALE UAV PISTON ENGINE DIGITAL TWIN</div>
-          <div className="brand-subtitle">Ground Control Station Telemetry & PHM Suite</div>
+          <div className="brand-subtitle">GROUND CONTROL STATION &amp; PHM SUITE</div>
         </div>
       </div>
 
-      <div className="mission-status-bar">
-        <div>
-          <span className="metric-tag">VEHICLE:</span>{" "}
-          <span className="metric-val" id="val-engine">
-            ENG_001
-          </span>
+      {/* Center: Mission Operational Telemetry */}
+      <div className="mission-center-bar">
+        <div className="metric-chip">
+          <span className="metric-label">VEHICLE</span>
+          <span className="metric-value text-cyan">{vehicleId}</span>
         </div>
-        <div>
-          <span className="metric-tag">MISSION:</span>{" "}
-          <span className="metric-val" id="val-mission">
-            LIVE_SIM_001
-          </span>
+        <div className="metric-chip">
+          <span className="metric-label">MISSION</span>
+          <span className="metric-value text-blue">{missionId}</span>
         </div>
-        <div>
-          <span className="metric-tag">ALTITUDE:</span>{" "}
-          <span className="metric-val" id="val-alt">
-            15,000 FT
-          </span>
+        <div className="metric-chip">
+          <span className="metric-label">ALTITUDE</span>
+          <span className="metric-value">{altitude.toLocaleString()} FT</span>
         </div>
-        <div>
-          <span className="metric-tag">THROTTLE:</span>{" "}
-          <span className="metric-val" id="val-throttle">
-            75%
-          </span>
+        <div className="metric-chip">
+          <span className="metric-label">THROTTLE</span>
+          <span className="metric-value">{throttle}%</span>
         </div>
-        <button
-          className={`nav-rul-btn ${isRulView ? "active" : ""}`}
-          id="btn-rul-view"
-          onClick={onToggleRulView}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M5 22h14" />
-            <path d="M5 2h14" />
-            <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
-            <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
-          </svg>
-          REMAINING TIME
-        </button>
+      </div>
+
+      {/* Right: RUL Countdown & Status Badge */}
+      <div className="mission-right-bar">
+        <div className="remaining-time-badge" title="Estimated Mission Time Remaining based on LSTM RUL Cycles">
+          <span className="time-icon">⌛</span>
+          <div className="time-content">
+            <span className="time-label">REMAINING TIME</span>
+            <span className="time-digits" id="header-remaining-time">
+              {remainingTimeStr}
+            </span>
+          </div>
+        </div>
+
         <div
           id="conn-badge"
           className="status-pill"
@@ -81,8 +75,9 @@ export default function Header({
           }}
         >
           <span className="status-dot"></span>
-          <span id="conn-text">{isConnected ? "LIVE 1 Hz" : "RECONNECTING..."}</span>
+          <span id="conn-text">{isConnected ? "LIVE 1 Hz" : "RECONNECTING"}</span>
         </div>
+
         <div className="auth-user-info">
           <span className="auth-user-email" id="auth-user-email">
             {userEmail || "Operator"}
