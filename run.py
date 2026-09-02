@@ -6,13 +6,20 @@ import webbrowser
 import signal
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     root_dir = os.path.dirname(os.path.abspath(__file__))
     python_exe = os.path.join(root_dir, "venv", "Scripts", "python.exe")
     if not os.path.exists(python_exe):
         python_exe = sys.executable
 
     print("==================================================")
-    print("🚁 Launching AeroTwin GCS (Backend + Frontend)")
+    print("[AEROTWIN] Launching AeroTwin GCS (Backend + Frontend)")
     print("==================================================")
     
     # 1. Start Backend
@@ -34,9 +41,9 @@ def main():
     # Wait for servers to initialize
     time.sleep(3)
     print("\n" + "=" * 50)
-    print("✅ All services online!")
-    print("👉 Frontend Dashboard: http://localhost:3000")
-    print("👉 Backend Telemetry:  http://localhost:8000")
+    print("[OK] All services online!")
+    print("-> Frontend Dashboard: http://localhost:3000")
+    print("-> Backend Telemetry:  http://localhost:8000")
     print("=" * 50)
     print("\nPress Ctrl+C to terminate all services.\n")
     
@@ -52,7 +59,7 @@ def main():
             if backend_proc.poll() is not None or frontend_proc.poll() is not None:
                 break
     except KeyboardInterrupt:
-        print("\n\n🛑 Shutting down AeroTwin services...")
+        print("\n\n[SHUTDOWN] Shutting down AeroTwin services...")
     finally:
         try:
             backend_proc.terminate()
@@ -65,7 +72,7 @@ def main():
             subprocess.run(f"taskkill /F /T /PID {frontend_proc.pid}", shell=True, capture_output=True)
         except Exception:
             pass
-        print("✅ Shutdown complete.")
+        print("[OK] Shutdown complete.")
 
 if __name__ == "__main__":
     main()
