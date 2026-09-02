@@ -45,31 +45,31 @@ export default function Sidebar({
     {
       heading: "OVERVIEW",
       items: [
-        { id: "dashboard" as NavView, label: "Dashboard", icon: "🎛️", tag: "LIVE" },
+        { id: "dashboard" as NavView, label: "Dashboard", icon: "DASH", tag: "LIVE" },
       ],
     },
     {
       heading: "MONITORING",
       items: [
-        { id: "telemetry" as NavView, label: "Live Telemetry", icon: "⚡", tag: "9 CH" },
+        { id: "telemetry" as NavView, label: "Live Telemetry", icon: "TLM", tag: "9 CH" },
       ],
     },
     {
       heading: "ANALYSIS",
       items: [
-        { id: "diagnostics" as NavView, label: "Diagnostics", icon: "🔬" },
-        { id: "rul" as NavView, label: "RUL & Prognostics", icon: "⏱️" },
-        { id: "regression" as NavView, label: "Regression & Trends", icon: "📈" },
+        { id: "diagnostics" as NavView, label: "Diagnostics", icon: "DIAG" },
+        { id: "rul" as NavView, label: "RUL & Prognostics", icon: "RUL" },
+        { id: "regression" as NavView, label: "Regression & Trends", icon: "REG" },
       ],
     },
     {
       heading: "OPERATIONS",
       items: [
-        { id: "maintenance" as NavView, label: "Maintenance", icon: "🛠️" },
+        { id: "maintenance" as NavView, label: "Maintenance", icon: "MNT" },
         {
           id: "alerts" as NavView,
           label: "Alerts",
-          icon: "🔔",
+          icon: "ALR",
           badge: activeAlertCount > 0 ? activeAlertCount : undefined,
         },
       ],
@@ -85,8 +85,8 @@ export default function Sidebar({
         <div className="sidebar-brand-title">
           {!isCollapsed && (
             <>
-              <span className="sidebar-logo">✈️</span>
-              <span className="sidebar-title-text">AEROTWIN GCS</span>
+              <span className="sidebar-logo">▲</span>
+              <span className="sidebar-title-text"><strong>AEROTWIN GCS</strong></span>
             </>
           )}
         </div>
@@ -102,9 +102,9 @@ export default function Sidebar({
 
       {/* Engine Selector Dropdown */}
       <div className="sidebar-engine-selector">
-        {!isCollapsed && <span className="engine-selector-label">TARGET ENGINE</span>}
+        {!isCollapsed && <span className="engine-selector-label"><strong>TARGET ENGINE</strong></span>}
         <div className="engine-dropdown-wrap">
-          <span className="engine-chip-icon">🛩️</span>
+          <span className="engine-chip-icon">SYS:</span>
           <select
             className="engine-select"
             value={selectedEngine}

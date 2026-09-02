@@ -35,7 +35,7 @@ export default function LiveTelemetryView({ payload }: LiveTelemetryViewProps) {
     <div className="view-container live-telemetry-view">
       <div className="view-header-strip">
         <div>
-          <h2 className="view-title">⚡ 9-CHANNEL LIVE TELEMETRY &amp; TIME-SERIES DYNAMICS</h2>
+          <h2 className="view-title"><strong>9-CHANNEL LIVE TELEMETRY &amp; TIME-SERIES DYNAMICS</strong></h2>
           <p className="view-subtitle">High-frequency 1 Hz avionics telemetry stream, min/max envelopes, and rolling thermal waveforms</p>
         </div>
         <span className="badge-live-pulse">LIVE 1 Hz STREAM</span>

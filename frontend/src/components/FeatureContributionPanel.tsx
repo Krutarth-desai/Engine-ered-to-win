@@ -15,10 +15,9 @@ export default function FeatureContributionPanel({ features }: FeatureContributi
     <div className="panel feature-contribution-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">📊</span>
-          TOP CONTRIBUTING FEATURES (EXPLAINABLE PHM)
+          <strong>TOP CONTRIBUTING FEATURES (EXPLAINABLE PHM)</strong>
         </div>
-        <span className="explainable-badge">SHAP / GRADIENT ATTRIBUTION</span>
+        <span className="explainable-badge"><strong>SHAP / GRADIENT ATTRIBUTION</strong></span>
       </div>
 
       <div className="feature-columns-split">
@@ -35,7 +34,7 @@ export default function FeatureContributionPanel({ features }: FeatureContributi
                     {feat.direction === "UP" && <span className="feat-arrow up">↑</span>}
                     {feat.direction === "DOWN" && <span className="feat-arrow down">↓</span>}
                     {feat.direction === "STABLE" && <span className="feat-arrow stable">→</span>}
-                    {feat.name}
+                    <strong>{feat.name}</strong>
                   </span>
                   <span className="feat-score font-mono">
                     {feat.score.toFixed(3)}
@@ -56,8 +55,7 @@ export default function FeatureContributionPanel({ features }: FeatureContributi
         {/* Right: Feature Impact Diagnostic Guide */}
         <div className="feature-impact-guide">
           <div className="guide-title">
-            <span className="guide-icon">💡</span>
-            FEATURE IMPACT GUIDE
+            <strong>FEATURE IMPACT GUIDE</strong>
           </div>
 
           <div className="guide-items">

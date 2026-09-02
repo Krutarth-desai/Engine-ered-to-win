@@ -148,13 +148,12 @@ export default function RulTrajectoryChart({
     <div className="panel rul-trajectory-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">📉</span>
-          ACTUAL VS PREDICTED RUL TRAJECTORY
+          <strong>ACTUAL VS PREDICTED RUL TRAJECTORY</strong>
         </div>
         <div className="trajectory-current-badge">
-          <span>CURRENT: CYCLE {currentCycle}</span>
+          <span><strong>CURRENT: CYCLE {currentCycle}</strong></span>
           <span className="bullet">●</span>
-          <span className="text-cyan">RUL: {Math.round(currentPredictedRul)}</span>
+          <span className="text-cyan"><strong>RUL: {Math.round(currentPredictedRul)}</strong></span>
         </div>
       </div>
 

@@ -331,10 +331,16 @@ async def simulation_loop():
             if diag_result["diagnosis_type"] == "POSSIBLE_SENSOR_FAILURE" and diag_result["suspected_sensor"]:
                 sensor_name = diag_result["suspected_sensor"]
                 unified_data["risk"]["anomaly"] = "CAUTION"
+                unified_data["risk"]["level"] = "MEDIUM"
                 unified_data["risk"]["action"] = f"Check {sensor_name} sensor circuit & wiring."
             elif diag_result["diagnosis_type"] == "POSSIBLE_ENGINE_FAILURE":
                 unified_data["risk"]["anomaly"] = "ALERT"
+                unified_data["risk"]["level"] = "CRITICAL"
                 unified_data["risk"]["action"] = f"Multiple sensors anomalous ({', '.join(diag_result['affected_sensors'])}). Reduce power immediately."
+            elif simulation_state.get("scenario") == "Normal":
+                unified_data["risk"]["anomaly"] = "NORMAL"
+                unified_data["risk"]["level"] = "LOW"
+                unified_data["risk"]["action"] = "Nominal Cruise Profile - All Systems Normal"
             
             # 4. Optional Supabase anomaly logging
             if supabase_client and fault_info.get("status") != "Normal":

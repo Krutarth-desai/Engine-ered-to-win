@@ -11,14 +11,14 @@ export default function PhmAlertsPanel({ alerts }: PhmAlertsPanelProps) {
   const getAlertIcon = (level: string) => {
     switch (level) {
       case "ALERT":
-        return "🚨";
+        return "[ALT]";
       case "CAUTION":
-        return "⚠️";
+        return "[CAU]";
       case "INFO":
-        return "ⓘ";
+        return "[INF]";
       case "NORMAL":
       default:
-        return "✓";
+        return "[OK]";
     }
   };
 
@@ -40,17 +40,16 @@ export default function PhmAlertsPanel({ alerts }: PhmAlertsPanelProps) {
     <div className="panel phm-alerts-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">🔔</span>
-          PHM ALERTS &amp; DIAGNOSTICS
+          <strong>PHM ALERTS &amp; DIAGNOSTICS</strong>
         </div>
         <span className="active-alerts-count">
-          {alerts.filter((a) => a.level === "ALERT" || a.level === "CAUTION").length} ACTIVE
+          <strong>{alerts.filter((a) => a.level === "ALERT" || a.level === "CAUTION").length} ACTIVE</strong>
         </span>
       </div>
 
       <div className="alerts-feed-container">
         {alerts.length === 0 ? (
-          <div className="empty-alerts">✓ All operational parameters nominal. No active alerts.</div>
+          <div className="empty-alerts">[OK] All operational parameters nominal. No active alerts.</div>
         ) : (
           alerts.map((alert) => (
             <div key={alert.id} className={getAlertClass(alert.level)}>

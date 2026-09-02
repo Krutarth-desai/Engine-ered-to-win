@@ -50,19 +50,19 @@ export default function SensorDiagnosisPanel({ telemetry }: SensorDiagnosisPanel
     <div className="panel" id="sensor-diag-section">
       <div className="panel-header">
         <span className="panel-title">
-          <span>🔬</span> SENSOR VS ENGINE DIAGNOSIS
+          <strong>SENSOR VS ENGINE DIAGNOSIS</strong>
         </span>
         <span id="diag-diagnosis-badge" className={`diag-diagnosis-badge ${diagBadgeClass}`}>
-          {diagBadgeText}
+          <strong>{diagBadgeText}</strong>
         </span>
       </div>
 
       {/* Suspected Sensor */}
       {suspectedSensor && (
         <div className="diag-suspected-sensor" id="diag-suspected-row" style={{ display: "flex", padding: "0 0.5rem" }}>
-          <span className="diag-suspected-label">Suspected Sensor:</span>
+          <span className="diag-suspected-label"><strong>Suspected Sensor:</strong></span>
           <span className="diag-suspected-val" id="diag-suspected-val">
-            {SENSOR_DISPLAY_MAP[suspectedSensor] || suspectedSensor}
+            <strong>{SENSOR_DISPLAY_MAP[suspectedSensor] || suspectedSensor}</strong>
           </span>
         </div>
       )}
@@ -70,19 +70,19 @@ export default function SensorDiagnosisPanel({ telemetry }: SensorDiagnosisPanel
       {/* Confidence Scores */}
       <div className="diag-confidence-row">
         <div className="diag-conf-item">
-          <div className="diag-conf-label">SENSOR FAULT CONF.</div>
+          <div className="diag-conf-label"><strong>SENSOR FAULT CONF.</strong></div>
           <div className="diag-conf-val" id="diag-sensor-conf" style={{ color: "var(--accent-amber)" }}>
             {sensorConf}
           </div>
         </div>
         <div className="diag-conf-item">
-          <div className="diag-conf-label">ENGINE FAULT CONF.</div>
+          <div className="diag-conf-label"><strong>ENGINE FAULT CONF.</strong></div>
           <div className="diag-conf-val" id="diag-engine-conf" style={{ color: "var(--accent-rose)" }}>
             {engineConf}
           </div>
         </div>
         <div className="diag-conf-item">
-          <div className="diag-conf-label">PERSISTENCE</div>
+          <div className="diag-conf-label"><strong>PERSISTENCE</strong></div>
           <div className="diag-conf-val" id="diag-persistence" style={{ color: "var(--accent-cyan)" }}>
             {persistence}
           </div>
@@ -91,7 +91,7 @@ export default function SensorDiagnosisPanel({ telemetry }: SensorDiagnosisPanel
 
       {/* Sensor Anomaly Score Bars */}
       <div className="diag-section-header" style={{ marginTop: "0.85rem", padding: "0 0.2rem" }}>
-        <span>Sensor Anomaly Scores</span>
+        <span><strong>Sensor Anomaly Scores</strong></span>
         <span
           style={{
             fontFamily: "'JetBrains Mono', monospace",

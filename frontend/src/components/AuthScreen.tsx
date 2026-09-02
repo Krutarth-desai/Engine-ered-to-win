@@ -83,7 +83,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
           <div className="logo-badge">AEROTWIN</div>
           <div className="auth-logo-subtitle">Operator Authentication Required</div>
         </div>
-        <h2 id="auth-title">{isSignUpMode ? "Create Account" : "Sign In to GCS"}</h2>
+        <h2 id="auth-title"><strong>{isSignUpMode ? "Create Account" : "Sign In to GCS"}</strong></h2>
         
         {errorMsg && (
           <div className="auth-error" style={{ display: "block" }}>
@@ -99,7 +99,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
 
         <form onSubmit={handleAuthSubmit} autoComplete="on">
           <div className="auth-field">
-            <label htmlFor="auth-email">Email</label>
+            <label htmlFor="auth-email"><strong>Email</strong></label>
             <input
               type="email"
               id="auth-email"
@@ -111,7 +111,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             />
           </div>
           <div className="auth-field">
-            <label htmlFor="auth-password">Password</label>
+            <label htmlFor="auth-password"><strong>Password</strong></label>
             <input
               type="password"
               id="auth-password"

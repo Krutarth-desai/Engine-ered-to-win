@@ -45,10 +45,10 @@ export default function RegressionTrendsView({ payload }: RegressionTrendsViewPr
     <div className="view-container regression-trends-view">
       <div className="view-header-strip">
         <div>
-          <h2 className="view-title">📈 REGRESSION MODELING &amp; MULTI-CYCLE TRENDS</h2>
+          <h2 className="view-title"><strong>REGRESSION MODELING &amp; MULTI-CYCLE TRENDS</strong></h2>
           <p className="view-subtitle">Live empirical thermodynamic correlation, linear regression fits, and temporal degradation velocities</p>
         </div>
-        <span className="window-pill">MATPLOTLIB HEADLESS ENGINE</span>
+        <span className="window-pill"><strong>MATPLOTLIB HEADLESS ENGINE</strong></span>
       </div>
 
       <div className="regression-grid">
@@ -56,10 +56,9 @@ export default function RegressionTrendsView({ payload }: RegressionTrendsViewPr
         <div className="panel regression-plot-panel">
           <div className="panel-header">
             <div className="panel-title">
-              <span className="panel-icon">📊</span>
-              CHT VS RPM FEATURE REGRESSION (LIVE SCATTER &amp; TRENDLINE)
+              <strong>CHT VS RPM FEATURE REGRESSION (LIVE SCATTER &amp; TRENDLINE)</strong>
             </div>
-            <span className="model-chip">OLS REGRESSION</span>
+            <span className="model-chip"><strong>OLS REGRESSION</strong></span>
           </div>
 
           <div className="plot-display-area">
@@ -114,8 +113,7 @@ export default function RegressionTrendsView({ payload }: RegressionTrendsViewPr
           <div className="panel analytical-insights-card">
             <div className="panel-header">
               <div className="panel-title">
-                <span className="panel-icon">💡</span>
-                PHYSICAL REGIME COMMENTARY
+                <strong>PHYSICAL REGIME COMMENTARY</strong>
               </div>
             </div>
             <div className="insights-body">

@@ -41,13 +41,13 @@ export default function DiagnosticsView({ payload }: DiagnosticsViewProps) {
     <div className="view-container diagnostics-view">
       <div className="view-header-strip">
         <div>
-          <h2 className="view-title">🔬 SUBSYSTEM DIAGNOSTICS &amp; SENSOR FAULT ISOLATION</h2>
+          <h2 className="view-title"><strong>SUBSYSTEM DIAGNOSTICS &amp; SENSOR FAULT ISOLATION</strong></h2>
           <p className="view-subtitle">Cross-sensor regression modeling, physics health verification, and anomaly root-cause attribution</p>
         </div>
         <div className="diag-header-status">
-          <span className="status-label">CURRENT DIAGNOSIS:</span>
-          <span className={`status-val status-${(payload.risk?.anomaly || "normal").toLowerCase()}`}>
-            {payload.sensor_diagnosis?.diagnosis_type || "NORMAL"}
+          <span className="status-label"><strong>CURRENT DIAGNOSIS:</strong></span>
+          <span className={`status-val status-${(payload.sensor_diagnosis?.diagnosis_type || "normal").toLowerCase()}`}>
+            <strong>{payload.sensor_diagnosis?.diagnosis_type || "NORMAL"}</strong>
           </span>
         </div>
       </div>

@@ -35,6 +35,13 @@
             overflow-x: hidden;
         }
 
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 800;
+            color: #f8fafc;
+            letter-spacing: 0.5px;
+        }
+
         /* Scanline Overlay for Aerospace HMI feel */
         body::before {
             content: "";
@@ -171,10 +178,11 @@
 
         .panel-title {
             font-family: 'Chakra Petch', sans-serif;
-            font-size: 0.92rem;
+            font-size: 0.95rem;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--text-secondary);
+            color: #f8fafc;
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -2891,10 +2899,10 @@
         }
 
         .kpi-label {
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: #64748b;
-            letter-spacing: 0.5px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #cbd5e1;
+            letter-spacing: 0.75px;
             font-family: 'JetBrains Mono', monospace;
         }
 
@@ -3031,10 +3039,10 @@
         }
 
         .section-title {
-            font-size: 0.76rem;
-            font-weight: 700;
-            color: #cbd5e1;
-            letter-spacing: 0.5px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #f8fafc;
+            letter-spacing: 0.75px;
             display: flex;
             align-items: center;
             gap: 0.4rem;

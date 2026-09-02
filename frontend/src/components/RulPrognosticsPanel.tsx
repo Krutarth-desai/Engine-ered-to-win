@@ -357,7 +357,7 @@ export default function RulPrognosticsPanel({ isVisible }: RulPrognosticsPanelPr
         <div className="panel rul-chart-panel">
           <div className="panel-header">
             <span className="panel-title">
-              <span>📈</span> Actual vs Predicted RUL — CMAPSS FD001 Live Inference
+              <strong>Actual vs Predicted RUL — CMAPSS FD001 Live Inference</strong>
             </span>
             <span
               className="metric-tag"
@@ -367,7 +367,7 @@ export default function RulPrognosticsPanel({ isVisible }: RulPrognosticsPanelPr
               }}
               id="rul-cycle-counter"
             >
-              CYCLE: {cycleCounter}
+              <strong>CYCLE: {cycleCounter}</strong>
             </span>
           </div>
           <div className="rul-chart-container">
@@ -379,7 +379,7 @@ export default function RulPrognosticsPanel({ isVisible }: RulPrognosticsPanelPr
         <div className="panel">
           <div className="panel-header">
             <span className="panel-title">
-              <span>🧠</span> LSTM Prognostic Metrics
+              <strong>LSTM Prognostic Metrics</strong>
             </span>
           </div>
           <div className="rul-metrics-grid">

@@ -38,12 +38,11 @@ export default function RulPrognosticsGauge({ prognostics }: RulPrognosticsGauge
     <div className="panel rul-centerpiece-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">⏱️</span>
-          REMAINING USEFUL LIFE (RUL) — LSTM PROGNOSTICS
+          <strong>REMAINING USEFUL LIFE (RUL) — LSTM PROGNOSTICS</strong>
         </div>
         <div className="zone-pill" style={{ borderColor: `${zoneColor}60`, color: zoneColor, background: `${zoneColor}15` }}>
           <span className="status-dot" style={{ background: zoneColor, boxShadow: `0 0 8px ${zoneColor}` }} />
-          {zoneLabel}
+          <strong>{zoneLabel}</strong>
         </div>
       </div>
 
@@ -120,8 +119,7 @@ export default function RulPrognosticsGauge({ prognostics }: RulPrognosticsGauge
                 <span className="rul-big-unit">CYCLES</span>
               </div>
               <div className="rul-sub-remaining">
-                <span className="time-icon">⌛</span>
-                <span className="time-text">≈ {prognostics.remaining_time_str} TIME REMAINING</span>
+                <span className="time-text">EST. {prognostics.remaining_time_str} TIME REMAINING</span>
               </div>
             </div>
           </div>
@@ -138,7 +136,7 @@ export default function RulPrognosticsGauge({ prognostics }: RulPrognosticsGauge
         {/* Right: RUL Overview Card */}
         <div className="rul-overview-card">
           <div className="overview-header">
-            <span className="overview-title">RUL OVERVIEW</span>
+            <span className="overview-title"><strong>RUL OVERVIEW</strong></span>
             <span className="overview-badge">LSTM INFERENCE</span>
           </div>
 
@@ -162,7 +160,7 @@ export default function RulPrognosticsGauge({ prognostics }: RulPrognosticsGauge
             <div className="overview-row">
               <span className="row-label">Degradation Trend</span>
               <span className={`row-val trend-${prognostics.degradation_trend.toLowerCase()}`}>
-                {prognostics.degradation_trend === "Accelerating" ? "⚡ Accelerating" : `↑ ${prognostics.degradation_trend}`}
+                {prognostics.degradation_trend === "Accelerating" ? "Accelerating" : prognostics.degradation_trend}
               </span>
             </div>
             <div className="overview-row highlight-row">

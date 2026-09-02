@@ -19,7 +19,7 @@ export default function RulPrognosticsView({ payload }: RulPrognosticsViewProps)
     <div className="view-container rul-prognostics-view">
       <div className="view-header-strip">
         <div>
-          <h2 className="view-title">⏱️ REMAINING USEFUL LIFE (RUL) &amp; PROGNOSTICS SUITE</h2>
+          <h2 className="view-title"><strong>REMAINING USEFUL LIFE (RUL) &amp; PROGNOSTICS SUITE</strong></h2>
           <p className="view-subtitle">Deep LSTM degradation modeling, 30-cycle temporal sequence memory, and cycle-to-failure forecasting</p>
         </div>
 
@@ -29,13 +29,13 @@ export default function RulPrognosticsView({ payload }: RulPrognosticsViewProps)
             className={`rul-tab-btn ${activeTab === "piston" ? "active" : ""}`}
             onClick={() => setActiveTab("piston")}
           >
-            🛩️ UAV PISTON PROGNOSTICS
+            <strong>UAV PISTON PROGNOSTICS</strong>
           </button>
           <button
             className={`rul-tab-btn ${activeTab === "cmapss" ? "active" : ""}`}
             onClick={() => setActiveTab("cmapss")}
           >
-            🚀 NASA CMAPSS FLEET (E1–E100)
+            <strong>NASA CMAPSS FLEET (E1–E100)</strong>
           </button>
         </div>
       </div>

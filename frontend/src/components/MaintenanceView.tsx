@@ -40,14 +40,14 @@ export default function MaintenanceView({ payload }: MaintenanceViewProps) {
     <div className="view-container maintenance-view">
       <div className="view-header-strip">
         <div>
-          <h2 className="view-title">🛠️ PREDICTIVE MAINTENANCE &amp; ACTION PROTOCOL</h2>
+          <h2 className="view-title"><strong>PREDICTIVE MAINTENANCE &amp; ACTION PROTOCOL</strong></h2>
           <p className="view-subtitle">Condition-based maintenance (CBM), component wear life thresholds, and field action procedures</p>
         </div>
         <div
           className="priority-badge"
           style={{ color: prio.color, backgroundColor: prio.bg, borderColor: prio.border }}
         >
-          PRIORITY: {riskLevel}
+          <strong>PRIORITY: {riskLevel}</strong>
         </div>
       </div>
 
@@ -57,16 +57,14 @@ export default function MaintenanceView({ payload }: MaintenanceViewProps) {
           <div className="panel maint-action-hero">
             <div className="panel-header">
               <div className="panel-title">
-                <span className="panel-icon">🎯</span>
-                CURRENT PILOT / OPERATOR DIRECTIVE
+                <strong>CURRENT PILOT / OPERATOR DIRECTIVE</strong>
               </div>
-              <span className="status-pill">{riskLevel} RISK</span>
+              <span className="status-pill"><strong>{riskLevel} RISK</strong></span>
             </div>
 
             <div className="maint-action-body">
               <div className="action-large-readout">
-                <span className="action-hero-icon">⚠️</span>
-                <span className="action-hero-text">{action}</span>
+                <span className="action-hero-text"><strong>{action}</strong></span>
               </div>
               <p className="action-context">
                 Automated recommendation generated based on cross-correlated physical telemetry, remaining useful life estimates ({Math.round(payload.prognostics?.predicted_rul || 117)} cycles), and current health index ({health}/100).
@@ -77,8 +75,7 @@ export default function MaintenanceView({ payload }: MaintenanceViewProps) {
           <div className="panel maint-protocols-card">
             <div className="panel-header">
               <div className="panel-title">
-                <span className="panel-icon">📋</span>
-                PREVENTATIVE MAINTENANCE PROTOCOLS
+                <strong>PREVENTATIVE MAINTENANCE PROTOCOLS</strong>
               </div>
             </div>
             <div className="protocols-list">
@@ -103,17 +100,16 @@ export default function MaintenanceView({ payload }: MaintenanceViewProps) {
           <div className="panel maint-checklist-card">
             <div className="panel-header">
               <div className="panel-title">
-                <span className="panel-icon">🔍</span>
-                SUBSYSTEM INSPECTION CHECKLIST
+                <strong>SUBSYSTEM INSPECTION CHECKLIST</strong>
               </div>
-              <span className="model-chip">5 CRITICAL NODES</span>
+              <span className="model-chip"><strong>5 CRITICAL NODES</strong></span>
             </div>
 
             <div className="checklist-items-wrap">
               {checklist.map((chk, i) => (
                 <div key={i} className={`checklist-item status-${chk.status.toLowerCase()}`}>
                   <div className="chk-top-line">
-                    <span className="chk-name">{chk.item}</span>
+                    <span className="chk-name"><strong>{chk.item}</strong></span>
                     <span className={`chk-badge status-${chk.status.toLowerCase()}`}>
                       {chk.status}
                     </span>

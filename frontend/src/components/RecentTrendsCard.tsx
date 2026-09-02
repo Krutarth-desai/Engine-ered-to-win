@@ -44,10 +44,9 @@ export default function RecentTrendsCard({ points, deltas }: RecentTrendsCardPro
     <div className="panel recent-trends-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">📈</span>
-          RECENT 30-CYCLE TREND (LSTM WINDOW)
+          <strong>RECENT 30-CYCLE TREND (LSTM WINDOW)</strong>
         </div>
-        <span className="window-pill">30 CYCLES</span>
+        <span className="window-pill"><strong>30 CYCLES</strong></span>
       </div>
 
       <div className="trends-grid">

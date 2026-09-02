@@ -46,8 +46,7 @@ export default function HealthRiskPanel({ healthIndex, risk }: HealthRiskPanelPr
     <div className="panel health-risk-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">🛡️</span>
-          HEALTH &amp; RISK ENGINE
+          <strong>HEALTH &amp; RISK ENGINE</strong>
         </div>
         <div
           className="risk-indicator-pill"
@@ -57,7 +56,7 @@ export default function HealthRiskPanel({ healthIndex, risk }: HealthRiskPanelPr
             borderColor: riskStyle.border,
           }}
         >
-          {risk.level} RISK
+          <strong>{risk.level} RISK</strong>
         </div>
       </div>
 
@@ -117,8 +116,7 @@ export default function HealthRiskPanel({ healthIndex, risk }: HealthRiskPanelPr
       {/* Decision Engine Recommended Action Box */}
       <div className="decision-action-box">
         <div className="decision-header">
-          <span className="decision-icon">🎯</span>
-          <span className="decision-label">RECOMMENDED ACTION</span>
+          <span className="decision-label"><strong>RECOMMENDED ACTION</strong></span>
         </div>
         <div className="decision-text" id="decision-action-text">
           {risk.action}

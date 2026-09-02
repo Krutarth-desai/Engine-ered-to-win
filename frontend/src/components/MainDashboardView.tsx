@@ -63,8 +63,8 @@ export default function MainDashboardView({
         {/* Card 1: Health Index */}
         <div className="kpi-card kpi-health">
           <div className="kpi-header">
-            <span className="kpi-label">HEALTH INDEX</span>
-            <span className="kpi-icon">🛡️</span>
+            <span className="kpi-label"><strong>HEALTH INDEX</strong></span>
+            <span className="kpi-icon">PHM</span>
           </div>
           <div className="kpi-body">
             <div className="kpi-main-val">
@@ -86,7 +86,7 @@ export default function MainDashboardView({
           title="Click to view full Diagnostics analysis"
         >
           <div className="kpi-header">
-            <span className="kpi-label">ANOMALY &amp; RISK</span>
+            <span className="kpi-label"><strong>ANOMALY &amp; RISK</strong></span>
             <span className="kpi-link-hint">DETAILS →</span>
           </div>
           <div className="kpi-body">
@@ -115,7 +115,7 @@ export default function MainDashboardView({
           title="Click to view detailed RUL & Prognostics page"
         >
           <div className="kpi-header">
-            <span className="kpi-label">REMAINING USEFUL LIFE</span>
+            <span className="kpi-label"><strong>REMAINING USEFUL LIFE</strong></span>
             <span className="kpi-link-hint">PROGNOSTICS →</span>
           </div>
           <div className="kpi-body">
@@ -125,7 +125,7 @@ export default function MainDashboardView({
             </div>
             <div className="rul-trend-row">
               <span className="rul-trend-badge">
-                {trend === "Accelerating" ? "⚡ ACCELERATING" : `↑ ${trend.toUpperCase()}`}
+                {trend === "Accelerating" ? "ACCELERATING" : `RATE: ${trend.toUpperCase()}`}
               </span>
               <span className="rul-time-hint">≈ {payload.prognostics?.remaining_time_str || "01:57:32"}</span>
             </div>
@@ -139,13 +139,12 @@ export default function MainDashboardView({
           title="Click to view Maintenance workflows"
         >
           <div className="kpi-header">
-            <span className="kpi-label">ACTION RECOMMENDATION</span>
+            <span className="kpi-label"><strong>ACTION RECOMMENDATION</strong></span>
             <span className="kpi-link-hint">MAINTENANCE →</span>
           </div>
           <div className="kpi-body">
             <div className="action-highlight-box">
-              <span className="action-icon">🎯</span>
-              <span className="action-title-text">{actionText}</span>
+              <span className="action-title-text"><strong>{actionText}</strong></span>
             </div>
             <div className="kpi-subtext">
               {riskLevel === "CRITICAL" || riskLevel === "HIGH"
@@ -182,8 +181,7 @@ export default function MainDashboardView({
       <div className="dashboard-sensors-section">
         <div className="section-header-row">
           <div className="section-title">
-            <span className="section-icon">⚡</span>
-            9-CHANNEL LIVE SENSORS (OPERATIONAL HUD)
+            <strong>9-CHANNEL LIVE SENSORS (OPERATIONAL HUD)</strong>
           </div>
           <button
             className="view-more-btn"
@@ -204,7 +202,7 @@ export default function MainDashboardView({
                 title={`Click to view detailed ${sensor.name} telemetry`}
               >
                 <div className="card-header-line">
-                  <span className="compact-sensor-name">{sensor.name}</span>
+                  <span className="compact-sensor-name"><strong>{sensor.name}</strong></span>
                   <span
                     className="compact-sensor-dot"
                     style={{ backgroundColor: statusColor, boxShadow: `0 0 6px ${statusColor}` }}
@@ -245,12 +243,12 @@ export default function MainDashboardView({
           title="Click to open full Alerts log"
         >
           <div className="alert-bar-left">
-            <span className="alert-bar-icon">
-              {activeAlert.level === "ALERT" ? "🚨" : activeAlert.level === "CAUTION" ? "⚠️" : "🟢"}
+            <span className="alert-bar-level-tag">
+              [{activeAlert.level}]
             </span>
             <div className="alert-bar-content">
               <div className="alert-bar-title">
-                {activeAlert.title}
+                <strong>{activeAlert.title}</strong>
                 <span className="alert-bar-time">{activeAlert.time_ago}</span>
               </div>
               <div className="alert-bar-msg">{activeAlert.message}</div>

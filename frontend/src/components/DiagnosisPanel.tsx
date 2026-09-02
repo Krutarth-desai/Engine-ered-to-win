@@ -74,7 +74,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
 
   // Advisory details
   let cardClass = "advisory-box";
-  let title = "🛡️ Propulsion Health: Nominal";
+  let title = "Propulsion Health: Nominal";
   let desc =
     "All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are < 2.5%.";
   let action = "RECOMMENDATION: Continue planned mission profile. No maintenance required.";
@@ -93,7 +93,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
 
   if (faultLabel === "Normal") {
     cardClass = "advisory-box";
-    title = "🛡️ Propulsion Health: Nominal";
+    title = "Propulsion Health: Nominal";
     desc =
       "All thermal, combustion, and lubrication parameters are operating within baseline tolerances. Digital Twin physics residuals are < 2.5%.";
     action = "RECOMMENDATION: Continue planned mission profile. No maintenance required.";
@@ -109,7 +109,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
       "PHYSICS ENGINE: Telemetry parity matched across 9 sensor channels with zero divergence.";
   } else if (faultLabel === "Overheating") {
     cardClass = "advisory-box critical";
-    title = "🔥 Alert: Engine Overheating Trend Detected";
+    title = "Alert: Engine Overheating Trend Detected";
     desc = `CHT reached ${cht.toFixed(1)}°C and Oil Temp reached ${oilT.toFixed(1)}°C. Physics residual exceeds +35°C thermal model boundary.`;
     action =
       "ACTION: Reduce cruise throttle to 55%. Plan altitude descent for enhanced ram-air cooling. Inspect radiator fins post-flight.";
@@ -130,7 +130,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
     logText = `THERMAL ANOMALY: Cylinder jacket heat transfer deficit detected (${cht.toFixed(1)}°C).`;
   } else if (faultLabel === "Injector_Degradation") {
     cardClass = "advisory-box warning";
-    title = "⚙️ Warning: Fuel Injector Delivery Degradation";
+    title = "Warning: Fuel Injector Delivery Degradation";
     desc = `Fuel flow elevated (${fuel.toFixed(1)} L/h) with abnormal EGT and RPM fluctuations. Flow coefficient dropped 18%.`;
     action =
       "ACTION: Monitor fuel consumption vs endurance margin. Schedule injector ultrasonic cleaning at next turnaround.";
@@ -148,7 +148,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
     logText = `COMBUSTION DIAGNOSTIC: Fuel mass flow residual divergence on rail (+${(fuel - 18.5).toFixed(1)} L/h).`;
   } else if (faultLabel === "Lubrication") {
     cardClass = "advisory-box critical";
-    title = "🛢️ Urgent: Lubrication Starvation & Pressure Loss";
+    title = "Urgent: Lubrication Starvation & Pressure Loss";
     desc = `Oil pressure dropped to ${oilP.toFixed(2)} bar while friction vibration is climbing (${vib.toFixed(3)} g).`;
     action =
       "CRITICAL ADVISORY: Potential bearing wear/pump cavitation. Abort mission if pressure drops below 3.0 bar. Divert to nearest recovery base.";
@@ -169,7 +169,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
     logText = `HYDRAULIC FAILURE: Main gallery oil pressure collapsed below 3.5 bar margin.`;
   } else if (faultLabel === "Vibration_Fault") {
     cardClass = "advisory-box warning";
-    title = "〰️ Mechanical Anomaly: High Vibration Signature";
+    title = "Mechanical Anomaly: High Vibration Signature";
     desc = `Spectral energy spikes detected in 1X-2X crankshaft harmonics (${vib.toFixed(3)} g RMS). Probable propeller imbalance or mount looseness.`;
     action =
       "ACTION: Avoid resonant RPM bands. Restrict maximum continuous power. Perform mechanical mount inspection.";
@@ -187,7 +187,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
     logText = `ROTORDYNAMICS: 1X crankshaft fundamental frequency vibration spike detected.`;
   } else if (faultLabel === "Sensor_Drift") {
     cardClass = "advisory-box warning";
-    title = "📡 Avionics Alert: CHT Sensor Drift / Calibration Error";
+    title = "Avionics Alert: CHT Sensor Drift / Calibration Error";
     desc = `CHT reading (${cht.toFixed(1)}°C) diverges from physics-informed estimation, while EGT & Oil Temp remain normal. Engine is healthy.`;
     action =
       "INTELLIGENT DIAGNOSIS: Sensor failure detected via cross-sensor fusion. Engine safe to operate. Replace CHT probe on return.";
@@ -205,7 +205,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
     logText = `ANOMALY ISOLATION: Digital Twin neural estimator verified mechanical engine core is 100% healthy.`;
   } else if (faultLabel === "Misfire") {
     cardClass = "advisory-box critical";
-    title = "💥 Combustion Instability: Intermittent Cylinder Misfire";
+    title = "Combustion Instability: Intermittent Cylinder Misfire";
     desc =
       "Combustion irregularity detected with sudden RPM drops and unburnt exhaust gas temperature dips.";
     action =
@@ -314,10 +314,10 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
     <div className="panel" style={{ flex: 1 }}>
       <div className="panel-header">
         <span className="panel-title">
-          <span>🧠</span> Digital Twin Predictive Diagnostics
+          <strong>Digital Twin Predictive Diagnostics</strong>
         </span>
         <span className={`status-badge-lg ${badgeClass}`} id="phm-mode-badge">
-          {badgeText}
+          <strong>{badgeText}</strong>
         </span>
       </div>
 
@@ -325,7 +325,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
         {/* Dynamic Advisory Box */}
         <div id="advisory-card" className={cardClass}>
           <div className="advisory-title" id="advisory-title">
-            {title}
+            <strong>{title}</strong>
           </div>
           <div className="advisory-desc" id="advisory-desc">
             {desc}
@@ -348,7 +348,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
               }}
             >
               <div className="advisory-title" style={{ color: "var(--accent-cyan)" }}>
-                <span>🔧 Preventive Maintenance Action</span>
+                <span><strong>Preventive Maintenance Action</strong></span>
               </div>
               <div
                 className="advisory-desc"
@@ -362,7 +362,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
 
         {/* Feature Regression Plot (Matplotlib) */}
         <div className="diag-section-header" style={{ marginTop: "15px" }}>
-          <span>Telemetry Feature Regression</span>
+          <span><strong>Telemetry Feature Regression</strong></span>
           <span
             style={{
               fontFamily: "'JetBrains Mono', monospace",
@@ -370,7 +370,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
               color: "var(--accent-cyan)",
             }}
           >
-            Live Buffer
+            LIVE BUFFER
           </span>
         </div>
         <div style={{ textAlign: "center", marginBottom: "15px" }}>
@@ -391,7 +391,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
 
         {/* Subsystem Degradation & Physics Deviations */}
         <div className="diag-section-header">
-          <span>Subsystem Physics Health & Integrity</span>
+          <span><strong>Subsystem Physics Health &amp; Integrity</strong></span>
           <span
             style={{
               fontFamily: "'JetBrains Mono', monospace",
@@ -407,7 +407,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
           {/* Thermal Management */}
           <div className="diag-subsystem-item">
             <div className="diag-subsystem-header">
-              <span className="diag-subsystem-name">🔥 Thermal Core & Cooling Jacket</span>
+              <span className="diag-subsystem-name"><strong>Thermal Core &amp; Cooling Jacket</strong></span>
               <span className="diag-subsystem-val" id="diag-val-thermal" style={{ color: thermalColor }}>
                 {thermalText}
               </span>
@@ -427,7 +427,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
           {/* Fuel Delivery System */}
           <div className="diag-subsystem-item">
             <div className="diag-subsystem-header">
-              <span className="diag-subsystem-name">⚙️ Fuel Rail & Combustion Balance</span>
+              <span className="diag-subsystem-name"><strong>Fuel Rail &amp; Combustion Balance</strong></span>
               <span className="diag-subsystem-val" id="diag-val-fuel" style={{ color: fuelColor }}>
                 {fuelText}
               </span>
@@ -447,7 +447,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
           {/* Lubrication System */}
           <div className="diag-subsystem-item">
             <div className="diag-subsystem-header">
-              <span className="diag-subsystem-name">🛢️ Lubrication Circuit & Sump</span>
+              <span className="diag-subsystem-name"><strong>Lubrication Circuit &amp; Sump</strong></span>
               <span className="diag-subsystem-val" id="diag-val-oil" style={{ color: oilColor }}>
                 {oilText}
               </span>
@@ -467,7 +467,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
           {/* Mechanical / Vibration */}
           <div className="diag-subsystem-item">
             <div className="diag-subsystem-header">
-              <span className="diag-subsystem-name">〰️ Mechanical Balance & Mounts</span>
+              <span className="diag-subsystem-name"><strong>Mechanical Balance &amp; Mounts</strong></span>
               <span className="diag-subsystem-val" id="diag-val-vib" style={{ color: vibColor }}>
                 {vibText}
               </span>
@@ -487,7 +487,7 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
           {/* Avionics & Sensors */}
           <div className="diag-subsystem-item">
             <div className="diag-subsystem-header">
-              <span className="diag-subsystem-name">📡 Avionics Sensor Channel Fusion</span>
+              <span className="diag-subsystem-name"><strong>Avionics Sensor Channel Fusion</strong></span>
               <span className="diag-subsystem-val" id="diag-val-avionics" style={{ color: avionicsColor }}>
                 {avionicsText}
               </span>
@@ -507,30 +507,30 @@ export default function DiagnosisPanel({ telemetry }: DiagnosisPanelProps) {
 
         {/* PHM Prognostic Matrix */}
         <div className="diag-section-header">
-          <span>PHM PROGNOSTIC MATRIX</span>
+          <span><strong>PHM PROGNOSTIC MATRIX</strong></span>
         </div>
 
         <div className="diag-phm-grid">
           <div className="diag-phm-card">
-            <div className="diag-phm-label">ANOMALY CONFIDENCE</div>
+            <div className="diag-phm-label"><strong>ANOMALY CONFIDENCE</strong></div>
             <div className="diag-phm-val" id="diag-stat-conf" style={{ color: statConfColor }}>
               {statConf}
             </div>
           </div>
           <div className="diag-phm-card">
-            <div className="diag-phm-label">PHYSICS RESIDUAL</div>
+            <div className="diag-phm-label"><strong>PHYSICS RESIDUAL</strong></div>
             <div className="diag-phm-val" id="diag-stat-residual" style={{ color: "var(--accent-cyan)" }}>
               {statResidual}
             </div>
           </div>
           <div className="diag-phm-card">
-            <div className="diag-phm-label">MAINTENANCE PRIORITY</div>
+            <div className="diag-phm-label"><strong>MAINTENANCE PRIORITY</strong></div>
             <div className="diag-phm-val" id="diag-stat-priority" style={{ color: statPriorityColor }}>
               {statPriority}
             </div>
           </div>
           <div className="diag-phm-card">
-            <div className="diag-phm-label">DEGRADATION TREND</div>
+            <div className="diag-phm-label"><strong>DEGRADATION TREND</strong></div>
             <div className="diag-phm-val" id="diag-stat-trend" style={{ color: statTrendColor }}>
               {statTrend}
             </div>

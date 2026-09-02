@@ -35,14 +35,14 @@ export default function AlertsView({
   const getAlertIcon = (level: string) => {
     switch (level) {
       case "ALERT":
-        return "🚨";
+        return "[ALT]";
       case "CAUTION":
-        return "⚠️";
+        return "[CAU]";
       case "INFO":
-        return "ⓘ";
+        return "[INF]";
       case "NORMAL":
       default:
-        return "✓";
+        return "[OK]";
     }
   };
 
@@ -61,7 +61,7 @@ export default function AlertsView({
     <div className="view-container alerts-view">
       <div className="view-header-strip">
         <div>
-          <h2 className="view-title">🔔 ACTIVE ALERTS &amp; CHRONOLOGICAL PHM LOG</h2>
+          <h2 className="view-title"><strong>ACTIVE ALERTS &amp; CHRONOLOGICAL PHM LOG</strong></h2>
           <p className="view-subtitle">Full operational incident record, timestamped threshold violations, and telemetry event logs</p>
         </div>
 
@@ -73,7 +73,7 @@ export default function AlertsView({
               className={`filter-pill-btn ${filter === f ? "active" : ""}`}
               onClick={() => setFilter(f)}
             >
-              {f}
+              <strong>{f}</strong>
             </button>
           ))}
         </div>
@@ -91,7 +91,7 @@ export default function AlertsView({
       <div className="alerts-full-list">
         {filteredAlerts.length === 0 ? (
           <div className="empty-alerts-box">
-            <span>✓ No alerts found matching filter "{filter}". All telemetry nominal.</span>
+            <span>[OK] No alerts found matching filter "{filter}". All telemetry nominal.</span>
           </div>
         ) : (
           filteredAlerts.map((alert) => {
@@ -104,8 +104,8 @@ export default function AlertsView({
 
                 <div className="alert-details-col">
                   <div className="alert-meta-line">
-                    <span className="alert-severity-pill">{alert.level}</span>
-                    <span className="alert-headline">{alert.title}</span>
+                    <span className="alert-severity-pill"><strong>{alert.level}</strong></span>
+                    <span className="alert-headline"><strong>{alert.title}</strong></span>
                     <span className="alert-timestamp-mono">
                       {new Date(alert.timestamp).toLocaleTimeString()} ({alert.time_ago})
                     </span>
@@ -118,7 +118,7 @@ export default function AlertsView({
                     className={`ack-btn ${isAck ? "acked" : ""}`}
                     onClick={() => handleToggleAck(alert.id)}
                   >
-                    {isAck ? "ACKNOWLEDGED ✓" : "ACKNOWLEDGE"}
+                    {isAck ? "ACKNOWLEDGED" : "ACKNOWLEDGE"}
                   </button>
                 </div>
               </div>

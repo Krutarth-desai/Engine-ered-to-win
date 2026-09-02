@@ -27,9 +27,9 @@ export default function Header({
     <header id="app-header" className="gcs-mission-header">
       {/* Left: Mission Brand */}
       <div className="brand">
-        <div className="logo-badge">✈️ AEROTWIN</div>
+        <div className="logo-badge"><span className="aerotwin-icon">▲</span> AEROTWIN</div>
         <div>
-          <div className="brand-title">MALE UAV PISTON ENGINE DIGITAL TWIN</div>
+          <div className="brand-title"><strong>MALE UAV PISTON ENGINE DIGITAL TWIN</strong></div>
           <div className="brand-subtitle">GROUND CONTROL STATION &amp; PHM SUITE</div>
         </div>
       </div>
@@ -57,7 +57,7 @@ export default function Header({
       {/* Right: RUL Countdown & Status Badge */}
       <div className="mission-right-bar">
         <div className="remaining-time-badge" title="Estimated Mission Time Remaining based on LSTM RUL Cycles">
-          <span className="time-icon">⌛</span>
+          <span className="time-icon">REM:</span>
           <div className="time-content">
             <span className="time-label">REMAINING TIME</span>
             <span className="time-digits" id="header-remaining-time">

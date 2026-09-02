@@ -48,10 +48,9 @@ export default function EngineSensorsPanel({ sensors }: EngineSensorsPanelProps)
     <div className="panel engine-sensors-panel">
       <div className="panel-header">
         <div className="panel-title">
-          <span className="panel-icon">⚡</span>
-          ENGINE SENSORS (LIVE)
+          <strong>ENGINE SENSORS (LIVE)</strong>
         </div>
-        <span className="badge-live-pulse">REAL-TIME</span>
+        <span className="badge-live-pulse"><strong>REAL-TIME</strong></span>
       </div>
 
       <div className="sensors-list">
@@ -65,7 +64,7 @@ export default function EngineSensorsPanel({ sensors }: EngineSensorsPanelProps)
               <div className="sensor-top-row">
                 <div className="sensor-name-wrap">
                   <span className={getStatusDotClass(sensor.status)}>●</span>
-                  <span className="sensor-label">{sensor.name}</span>
+                  <span className="sensor-label"><strong>{sensor.name}</strong></span>
                 </div>
                 <div className="sensor-value-wrap">
                   <span className="sensor-trend" title={`Trend: ${sensor.trend}`}>

@@ -153,15 +153,15 @@ export default function DigitalTwinCenterpiece({
   }
 
   const scenariosList = [
-    { id: "Normal", label: "🟢 Nominal Operation", tag: "HEALTHY", tagClass: "normal" },
-    { id: "Overheating", label: "🔥 Cooling / Overheating", tag: "THERMAL", tagClass: "" },
-    { id: "Injector_Degradation", label: "⚙️ Injector Degradation", tag: "COMBUSTION", tagClass: "" },
-    { id: "Lubrication", label: "🛢️ Lubrication Starvation", tag: "HYDRAULIC", tagClass: "" },
-    { id: "Vibration_Fault", label: "〰️ Abnormal Vibration", tag: "MECHANICAL", tagClass: "" },
-    { id: "Sensor_Drift", label: "📡 CHT Sensor Drift", tag: "AVIONICS", tagClass: "" },
-    { id: "Misfire", label: "💥 Cylinder Misfire", tag: "IGNITION", tagClass: "" },
-    { id: "Sensor_Fault_Temp", label: "🌡️ Sensor Fault: Temp", tag: "SENSOR ISO", tagClass: "" },
-    { id: "Engine_Failure_Multi", label: "🔧 Engine Failure: Multi", tag: "ENGINE DX", tagClass: "" },
+    { id: "Normal", label: "Nominal Operation", tag: "HEALTHY", tagClass: "normal" },
+    { id: "Overheating", label: "Cooling / Overheating", tag: "THERMAL", tagClass: "" },
+    { id: "Injector_Degradation", label: "Injector Degradation", tag: "COMBUSTION", tagClass: "" },
+    { id: "Lubrication", label: "Lubrication Starvation", tag: "HYDRAULIC", tagClass: "" },
+    { id: "Vibration_Fault", label: "Abnormal Vibration", tag: "MECHANICAL", tagClass: "" },
+    { id: "Sensor_Drift", label: "CHT Sensor Drift", tag: "AVIONICS", tagClass: "" },
+    { id: "Misfire", label: "Cylinder Misfire", tag: "IGNITION", tagClass: "" },
+    { id: "Sensor_Fault_Temp", label: "Sensor Fault: Temp", tag: "SENSOR ISO", tagClass: "" },
+    { id: "Engine_Failure_Multi", label: "Engine Failure: Multi", tag: "ENGINE DX", tagClass: "" },
   ];
 
   return (
@@ -170,7 +170,7 @@ export default function DigitalTwinCenterpiece({
       <div className="panel uav-twin-panel">
         <div className="panel-header">
           <span className="panel-title">
-            <span>🛩️</span> MALE UAV Airframe & Subsystem Mini-Clone
+            <strong>MALE UAV Airframe &amp; Subsystem Mini-Clone</strong>
           </span>
           <div className="uav-view-controls">
             <button
@@ -607,9 +607,9 @@ export default function DigitalTwinCenterpiece({
       {/* Fault Injection Simulator (Interactive Demo) */}
       <div className="panel">
         <div className="panel-header">
-          <span className="panel-title">Fault Injection Matrix</span>
+          <span className="panel-title"><strong>Fault Injection Matrix</strong></span>
           <span className="scenario-tag" id="active-scenario-tag">
-            {scenario.toUpperCase()}
+            <strong>{scenario.toUpperCase()}</strong>
           </span>
         </div>
         <div className="scenarios-container">
@@ -619,7 +619,7 @@ export default function DigitalTwinCenterpiece({
               className={`scenario-btn ${activeScenario === sc.id ? `active ${sc.tagClass}` : ""}`}
               onClick={() => onInjectScenario(sc.id)}
             >
-              <span>{sc.label}</span>
+              <span><strong>{sc.label}</strong></span>
               <span className="scenario-tag">{sc.tag}</span>
             </button>
           ))}
