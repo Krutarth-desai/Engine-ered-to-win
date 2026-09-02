@@ -2556,3 +2556,1241 @@
             }
         }
 
+        /* ==========================================================================
+           OPERATIONAL GCS WORKSPACE & MULTI-PAGE ARCHITECTURE STYLES
+           ========================================================================== */
+
+        .gcs-workspace-layout {
+            display: flex;
+            flex-grow: 1;
+            min-height: calc(100vh - 60px);
+            background: #070b14;
+        }
+
+        /* Tactical Sidebar */
+        .gcs-sidebar {
+            width: 240px;
+            background: #090e1c;
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 40;
+        }
+
+        .gcs-sidebar.collapsed {
+            width: 64px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            height: 52px;
+        }
+
+        .sidebar-brand-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .sidebar-logo {
+            font-size: 1rem;
+        }
+
+        .sidebar-collapse-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.7rem;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-collapse-btn:hover {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border-color: #38bdf8;
+        }
+
+        /* Engine Selector in Sidebar */
+        .sidebar-engine-selector {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .engine-selector-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .engine-dropdown-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 5px;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .engine-chip-icon {
+            font-size: 0.85rem;
+        }
+
+        .engine-select {
+            background: transparent;
+            border: none;
+            color: #f8fafc;
+            font-size: 0.74rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .engine-select option {
+            background: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Sidebar Navigation Groups */
+        .sidebar-nav {
+            flex-grow: 1;
+            padding: 0.75rem 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            overflow-y: auto;
+        }
+
+        .nav-group-heading {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 1px;
+            padding: 0 0.5rem;
+            margin-bottom: 0.35rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .nav-item-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.5rem 0.65rem;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: #94a3b8;
+            font-size: 0.76rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            position: relative;
+        }
+
+        .nav-item-btn:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: #f8fafc;
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-item-btn.active {
+            background: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+            border-color: rgba(56, 189, 248, 0.35);
+            font-weight: 600;
+        }
+
+        .nav-item-btn.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 3px;
+            background: #38bdf8;
+            border-radius: 0 2px 2px 0;
+            box-shadow: 0 0 8px #38bdf8;
+        }
+
+        .nav-icon {
+            font-size: 0.95rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .nav-label {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nav-tag {
+            font-size: 0.58rem;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .nav-badge-count {
+            font-size: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            background: #ef4444;
+            color: #fff;
+            padding: 0.1rem 0.4rem;
+            border-radius: 10px;
+            font-weight: 700;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+        }
+
+        .sidebar-footer {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .sidebar-telemetry-status {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.64rem;
+            color: #10b981;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .footer-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+        }
+
+        /* GCS Active View Area */
+        .gcs-view-area {
+            flex-grow: 1;
+            padding: 1.25rem 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            background: radial-gradient(circle at 50% 10%, rgba(14, 21, 38, 0.4) 0%, #070b14 70%);
+        }
+
+        /* View Standard Header Strip */
+        .view-header-strip {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 0.5rem;
+        }
+
+        .view-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #f8fafc;
+            letter-spacing: 0.5px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .view-subtitle {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            margin: 0.2rem 0 0 0;
+        }
+
+        /* ==========================================================================
+           PAGE 1: MAIN DASHBOARD STYLES
+           ========================================================================== */
+
+        .main-dashboard-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.15rem;
+        }
+
+        /* Top 4 KPI Summary Cards Row */
+        .dashboard-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        .kpi-card {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .kpi-card.clickable {
+            cursor: pointer;
+        }
+
+        .kpi-card.clickable:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            background: rgba(18, 28, 50, 0.85);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.1);
+        }
+
+        .kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kpi-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .kpi-link-hint {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .kpi-main-val {
+            display: flex;
+            align-items: baseline;
+            gap: 0.35rem;
+        }
+
+        .kpi-big-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .kpi-denom {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .kpi-unit {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .kpi-subtext {
+            font-size: 0.66rem;
+            color: #94a3b8;
+            margin-top: 0.2rem;
+        }
+
+        /* Risk Dual Readout */
+        .risk-dual-readout {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-top: 0.2rem;
+        }
+
+        .risk-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.76rem;
+        }
+
+        .risk-tag {
+            color: #94a3b8;
+            font-size: 0.68rem;
+            font-weight: 600;
+        }
+
+        .risk-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 0.85rem;
+        }
+
+        .rul-trend-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.35rem;
+        }
+
+        .rul-trend-badge {
+            font-size: 0.62rem;
+            font-weight: 700;
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.12);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .rul-time-hint {
+            font-size: 0.68rem;
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .action-highlight-box {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 5px;
+            padding: 0.35rem 0.6rem;
+            margin-top: 0.2rem;
+        }
+
+        .action-title-text {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #f8fafc;
+            line-height: 1.2;
+        }
+
+        /* Center Engine View */
+        .dashboard-center-engine {
+            background: rgba(14, 21, 38, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.5rem;
+        }
+
+        /* Compact 9-Sensor HUD Grid */
+        .dashboard-sensors-section {
+            background: rgba(14, 21, 38, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+
+        .section-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-title {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #cbd5e1;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .view-more-btn {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: #38bdf8;
+            padding: 0.25rem 0.65rem;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-more-btn:hover {
+            background: rgba(56, 189, 248, 0.25);
+            border-color: #38bdf8;
+        }
+
+        .compact-sensors-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 0.55rem;
+        }
+
+        .compact-sensor-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .compact-sensor-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(56, 189, 248, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .card-header-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .compact-sensor-name {
+            font-size: 0.66rem;
+            font-weight: 600;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .compact-sensor-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .card-value-line {
+            display: flex;
+            align-items: baseline;
+            gap: 0.2rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .compact-sensor-val {
+            font-size: 0.92rem;
+            font-weight: 800;
+        }
+
+        .compact-sensor-unit {
+            font-size: 0.58rem;
+            color: #64748b;
+        }
+
+        .compact-progress-track {
+            height: 3px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .compact-progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Bottom Active Alert Strip */
+        .dashboard-active-alert-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 8px;
+            padding: 0.65rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid;
+        }
+
+        .alert-bar-warn {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+
+        .alert-bar-crit {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+
+        .dashboard-active-alert-bar:hover {
+            filter: brightness(1.15);
+        }
+
+        .alert-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-bar-icon {
+            font-size: 1.2rem;
+        }
+
+        .alert-bar-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alert-bar-time {
+            font-size: 0.64rem;
+            color: #64748b;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: normal;
+        }
+
+        .alert-bar-msg {
+            font-size: 0.7rem;
+            color: #cbd5e1;
+        }
+
+        .alert-bar-action-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f8fafc;
+            padding: 0.3rem 0.7rem;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        /* ==========================================================================
+           PAGE 2: LIVE TELEMETRY VIEW STYLES
+           ========================================================================== */
+
+        .telemetry-view-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        .telemetry-col-right {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .telemetry-chart-card,
+        .telemetry-gauges-card {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+
+        /* ==========================================================================
+           PAGE 3: DIAGNOSTICS VIEW STYLES
+           ========================================================================== */
+
+        .diagnostics-view-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .diag-top-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .diag-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .diag-header-status {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.74rem;
+        }
+
+        .status-label {
+            color: #64748b;
+        }
+
+        .status-val {
+            font-weight: 800;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid;
+        }
+
+        /* ==========================================================================
+           PAGE 4: RUL & PROGNOSTICS VIEW STYLES
+           ========================================================================== */
+
+        .rul-view-tabs {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .rul-tab-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 0.35rem 0.8rem;
+            border-radius: 5px;
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .rul-tab-btn:hover {
+            color: #f8fafc;
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .rul-tab-btn.active {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: #38bdf8;
+            color: #38bdf8;
+        }
+
+        .rul-prognostics-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .rul-deck-row {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .cmapss-view-wrap {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        /* ==========================================================================
+           PAGE 5: REGRESSION & TRENDS VIEW STYLES
+           ========================================================================== */
+
+        .regression-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        .regression-plot-panel {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+
+        .plot-display-area {
+            min-height: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #070b14;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            margin: 0.75rem 0;
+            overflow: hidden;
+        }
+
+        .regression-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .plot-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.6rem;
+            color: #64748b;
+            font-size: 0.76rem;
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(56, 189, 248, 0.2);
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .plot-stats-footer {
+            display: flex;
+            justify-content: space-around;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 6px;
+            padding: 0.5rem;
+        }
+
+        .stat-pill {
+            display: flex;
+            align-items: baseline;
+            gap: 0.35rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+        }
+
+        .pill-lbl {
+            color: #64748b;
+        }
+
+        .pill-val {
+            font-weight: 700;
+        }
+
+        .regression-trends-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .analytical-insights-card {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+
+        .insights-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .insight-text {
+            font-size: 0.74rem;
+            color: #94a3b8;
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        .insight-text strong {
+            color: #e2e8f0;
+        }
+
+        /* ==========================================================================
+           PAGE 6: MAINTENANCE VIEW STYLES
+           ========================================================================== */
+
+        .maintenance-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        .maint-col-left,
+        .maint-col-right {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .priority-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 0.2rem 0.65rem;
+            border-radius: 12px;
+            border: 1px solid;
+        }
+
+        .maint-action-hero {
+            background: rgba(14, 21, 38, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .action-large-readout {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            margin: 0.6rem 0;
+        }
+
+        .action-hero-icon {
+            font-size: 1.5rem;
+        }
+
+        .action-hero-text {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #f8fafc;
+            line-height: 1.3;
+        }
+
+        .action-context {
+            font-size: 0.74rem;
+            color: #94a3b8;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .maint-protocols-card,
+        .maint-checklist-card {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+
+        .protocols-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            margin-top: 0.6rem;
+        }
+
+        .protocol-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+
+        .protocol-tag {
+            font-size: 0.62rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            width: fit-content;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+        }
+
+        .tag-thermal { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .tag-hydraulic { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+        .tag-mechanical { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+
+        .protocol-desc {
+            font-size: 0.72rem;
+            color: #cbd5e1;
+            margin: 0;
+            line-height: 1.35;
+        }
+
+        .checklist-items-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-top: 0.65rem;
+        }
+
+        .checklist-item {
+            padding: 0.6rem 0.75rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .chk-top-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chk-name {
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #f8fafc;
+        }
+
+        .chk-badge {
+            font-size: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+        }
+
+        .chk-action-line {
+            font-size: 0.68rem;
+            color: #94a3b8;
+        }
+
+        /* ==========================================================================
+           PAGE 7: ALERTS VIEW STYLES
+           ========================================================================== */
+
+        .alert-filters-row {
+            display: flex;
+            gap: 0.35rem;
+        }
+
+        .filter-pill-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.66rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-pill-btn:hover {
+            color: #f8fafc;
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .filter-pill-btn.active {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: #38bdf8;
+            color: #38bdf8;
+        }
+
+        .alerts-simulator-card {
+            margin-bottom: 0.5rem;
+        }
+
+        .alerts-full-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .alert-log-card {
+            background: rgba(14, 21, 38, 0.75);
+            border: 1px solid;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .alert-log-card.alert-crit {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.06);
+        }
+
+        .alert-log-card.alert-warn {
+            border-color: rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .alert-log-card.alert-info {
+            border-color: rgba(56, 189, 248, 0.3);
+            background: rgba(56, 189, 248, 0.04);
+        }
+
+        .alert-log-card.alert-nom {
+            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.04);
+        }
+
+        .alert-log-card.acknowledged {
+            opacity: 0.65;
+            border-style: dashed;
+        }
+
+        .alert-symbol-col {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .alert-details-col {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .alert-meta-line {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .alert-severity-pill {
+            font-size: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            border: 1px solid;
+        }
+
+        .alert-headline {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .alert-timestamp-mono {
+            font-size: 0.64rem;
+            color: #64748b;
+            font-family: 'JetBrains Mono', monospace;
+            margin-left: auto;
+        }
+
+        .alert-desc-line {
+            font-size: 0.72rem;
+            color: #94a3b8;
+        }
+
+        .ack-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #cbd5e1;
+            padding: 0.3rem 0.65rem;
+            border-radius: 4px;
+            font-size: 0.66rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .ack-btn:hover {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border-color: #38bdf8;
+        }
+
+        .ack-btn.acked {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .empty-alerts-box {
+            padding: 2rem;
+            text-align: center;
+            background: rgba(16, 185, 129, 0.04);
+            border: 1px dashed rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            font-size: 0.78rem;
+            color: #10b981;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Responsive adjustments for multi-page workspace */
+        @media (max-width: 1300px) {
+            .dashboard-kpi-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .compact-sensors-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .telemetry-view-grid {
+                grid-template-columns: 1fr;
+            }
+            .diag-top-row {
+                grid-template-columns: 1fr;
+            }
+            .rul-deck-row {
+                grid-template-columns: 1fr;
+            }
+            .regression-grid {
+                grid-template-columns: 1fr;
+            }
+            .maintenance-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .gcs-sidebar {
+                position: fixed;
+                top: 60px;
+                bottom: 0;
+                left: 0;
+            }
+            .gcs-sidebar.collapsed {
+                left: -64px;
+            }
+            .dashboard-kpi-row {
+                grid-template-columns: 1fr;
+            }
+            .compact-sensors-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+

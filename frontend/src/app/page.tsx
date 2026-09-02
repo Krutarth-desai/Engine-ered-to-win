@@ -5,18 +5,18 @@ import { supabase } from "@/lib/supabase";
 import { UnifiedTelemetryPayload, SensorItem } from "@/types/telemetry";
 import AuthScreen from "@/components/AuthScreen";
 import Header from "@/components/Header";
-import DigitalTwinCenterpiece from "@/components/DigitalTwinCenterpiece";
-import EngineSensorsPanel from "@/components/EngineSensorsPanel";
-import RulPrognosticsGauge from "@/components/RulPrognosticsGauge";
-import RulTrajectoryChart from "@/components/RulTrajectoryChart";
-import RecentTrendsCard from "@/components/RecentTrendsCard";
-import HealthRiskPanel from "@/components/HealthRiskPanel";
-import LstmMetricsPanel from "@/components/LstmMetricsPanel";
-import FeatureContributionPanel from "@/components/FeatureContributionPanel";
-import PhmAlertsPanel from "@/components/PhmAlertsPanel";
-import ScenarioBar from "@/components/ScenarioBar";
+import Sidebar, { NavView } from "@/components/Sidebar";
 
-// Default initial state matching nominal operational cruise
+// View Components
+import MainDashboardView from "@/components/MainDashboardView";
+import LiveTelemetryView from "@/components/LiveTelemetryView";
+import DiagnosticsView from "@/components/DiagnosticsView";
+import RulPrognosticsView from "@/components/RulPrognosticsView";
+import RegressionTrendsView from "@/components/RegressionTrendsView";
+import MaintenanceView from "@/components/MaintenanceView";
+import AlertsView from "@/components/AlertsView";
+
+// Default initial telemetry fallback matching nominal operational cruise
 const DEFAULT_SENSORS: SensorItem[] = [
   { key: "rpm", name: "RPM", value: 2450, unit: "RPM", min: 0, max: 3200, status: "NORMAL", trend: "STABLE", progressPct: 76.5 },
   { key: "cht", name: "CHT", value: 142.0, unit: "°C", min: 50, max: 240, status: "NORMAL", trend: "STABLE", progressPct: 48.4 },
@@ -126,10 +126,40 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [payload, setPayload] = useState<UnifiedTelemetryPayload>(DEFAULT_PAYLOAD);
+  const [currentView, setCurrentView] = useState<NavView>("dashboard");
+  const [selectedEngine, setSelectedEngine] = useState<string>("UAV_ENG_001");
   const [activeScenario, setActiveScenario] = useState<string>("Normal");
+  const [payload, setPayload] = useState<UnifiedTelemetryPayload>(DEFAULT_PAYLOAD);
 
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Sync with browser hash on initial mount and hashchange
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace("#", "").toLowerCase() as NavView;
+      const validViews: NavView[] = [
+        "dashboard",
+        "telemetry",
+        "diagnostics",
+        "rul",
+        "regression",
+        "maintenance",
+        "alerts",
+      ];
+      if (validViews.includes(hash)) {
+        setCurrentView(hash);
+      }
+    };
+
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
+  const handleNavigate = (view: NavView) => {
+    setCurrentView(view);
+    window.location.hash = view;
+  };
 
   // Helper to ensure public.profiles row
   const ensureProfile = async (user: any) => {
@@ -181,7 +211,7 @@ export default function Home() {
     };
   }, []);
 
-  // Connect to Unified Telemetry WebSocket
+  // Connect to Unified Telemetry WebSocket (Continuous 1 Hz Stream)
   useEffect(() => {
     if (!currentUser) {
       if (wsRef.current) {
@@ -211,7 +241,6 @@ export default function Home() {
       ws.onmessage = (event) => {
         try {
           const raw = JSON.parse(event.data);
-          // If server sent unified packet
           if (raw.prognostics && raw.sensor_list) {
             setPayload(raw);
             if (raw.scenario) {
@@ -219,7 +248,7 @@ export default function Home() {
             }
           }
         } catch (err) {
-          console.error("Error parsing telemetry WebSocket frame", err);
+          console.error("Error parsing telemetry frame", err);
         }
       };
 
@@ -255,6 +284,10 @@ export default function Home() {
     return null;
   }
 
+  const activeAlertsCount = payload.alerts
+    ? payload.alerts.filter((a) => a.level === "ALERT" || a.level === "CAUTION").length
+    : 0;
+
   return (
     <>
       {!currentUser && (
@@ -267,11 +300,11 @@ export default function Home() {
 
       {currentUser && (
         <div className="gcs-app-container">
-          {/* LAYER 1: Header / Mission Bar */}
+          {/* TOP MISSION HEADER */}
           <Header
             userEmail={currentUser.email || "Operator"}
             isConnected={isConnected}
-            vehicleId={payload.vehicle?.vehicle_id || "UAV_ENG_001"}
+            vehicleId={selectedEngine}
             missionId={payload.vehicle?.mission_id || "ISR_PATROL_27"}
             altitude={payload.vehicle?.altitude || 15000}
             throttle={payload.vehicle?.throttle || 75}
@@ -279,89 +312,57 @@ export default function Home() {
             onLogout={handleLogout}
           />
 
-          <main id="app-main" className="gcs-main-content">
-            {/* Mission Fault Injection Bar */}
-            <ScenarioBar
-              activeScenario={activeScenario}
-              onSelectScenario={handleInjectScenario}
+          {/* MAIN GCS WORKSPACE (SIDEBAR + ACTIVE DETAIL VIEW) */}
+          <div className="gcs-workspace-layout">
+            {/* Operational Navigation Sidebar */}
+            <Sidebar
+              currentView={currentView}
+              onSelectView={handleNavigate}
+              selectedEngine={selectedEngine}
+              onSelectEngine={setSelectedEngine}
+              activeAlertCount={activeAlertsCount}
             />
 
-            {/* LAYER 2: 3-Column Tactical Monitoring Deck */}
-            <div className="gcs-three-col-deck">
-              {/* Column 1: Engine Sensors (Live) */}
-              <div className="gcs-col gcs-col-left">
-                <EngineSensorsPanel sensors={payload.sensor_list || DEFAULT_SENSORS} />
-              </div>
+            {/* Active Operational View */}
+            <main id="app-main" className="gcs-view-area">
+              {currentView === "dashboard" && (
+                <MainDashboardView
+                  payload={payload}
+                  activeScenario={activeScenario}
+                  onInjectScenario={handleInjectScenario}
+                  onNavigate={handleNavigate}
+                />
+              )}
 
-              {/* Column 2: Centerpiece RUL & Trajectory Deck */}
-              <div className="gcs-col gcs-col-center">
-                {/* UAV Airframe & Engine Digital Twin Model */}
-                <DigitalTwinCenterpiece
-                  telemetry={{
-                    ...payload,
-                    rpm: payload.sensors?.rpm?.value ?? payload.rpm ?? 2450,
-                    cht_c: payload.sensors?.cht?.value ?? payload.cht_c ?? 142.0,
-                    egt_c: payload.sensors?.egt?.value ?? payload.egt_c ?? 615.0,
-                    oil_pressure_bar: payload.sensors?.oil_pressure?.value
-                      ? payload.sensors.oil_pressure.value / 14.5038
-                      : (payload.oil_pressure_bar ?? 4.7),
-                    oil_temperature_c: payload.sensors?.oil_temperature?.value ?? payload.oil_temperature_c ?? 92.0,
-                    fuel_flow_lh: payload.sensors?.fuel_flow?.value ?? payload.fuel_flow_lh ?? 17.6,
-                    vibration_g: payload.sensors?.vibration?.value ?? payload.vibration_g ?? 1.42,
-                    health_index: payload.health_index ?? 72,
-                    fault_label: payload.fault_label ?? activeScenario,
-                  }}
+              {currentView === "telemetry" && (
+                <LiveTelemetryView payload={payload} />
+              )}
+
+              {currentView === "diagnostics" && (
+                <DiagnosticsView payload={payload} />
+              )}
+
+              {currentView === "rul" && (
+                <RulPrognosticsView payload={payload} />
+              )}
+
+              {currentView === "regression" && (
+                <RegressionTrendsView payload={payload} />
+              )}
+
+              {currentView === "maintenance" && (
+                <MaintenanceView payload={payload} />
+              )}
+
+              {currentView === "alerts" && (
+                <AlertsView
+                  alerts={payload.alerts || []}
                   activeScenario={activeScenario}
                   onInjectScenario={handleInjectScenario}
                 />
-
-                {/* 1. RUL Gauge + Overview Card */}
-                <RulPrognosticsGauge prognostics={payload.prognostics} />
-
-                {/* 2. Actual vs Predicted RUL Trajectory Graph */}
-                <RulTrajectoryChart
-                  trajectory={payload.trajectory || []}
-                  currentCycle={payload.cycle || 31}
-                  currentActualRul={payload.prognostics?.actual_rul || 112}
-                  currentPredictedRul={payload.prognostics?.predicted_rul || 117.4}
-                />
-
-                {/* 3. Recent 30-Cycle Trend Cards */}
-                <RecentTrendsCard
-                  points={payload.recent_trends?.points || []}
-                  deltas={
-                    payload.recent_trends?.deltas || {
-                      egt_delta: 0,
-                      oil_pressure_delta: 0,
-                      vibration_delta: 0,
-                      health_delta: 0,
-                    }
-                  }
-                />
-              </div>
-
-              {/* Column 3: Health & Risk + LSTM Metrics */}
-              <div className="gcs-col gcs-col-right">
-                <HealthRiskPanel
-                  healthIndex={payload.health_index || 72}
-                  risk={payload.risk}
-                />
-                <LstmMetricsPanel prognostics={payload.prognostics} />
-              </div>
-            </div>
-
-            {/* LAYER 3: Bottom Layer (Contributing Features & PHM Alerts) */}
-            <div className="gcs-bottom-deck">
-              <div className="bottom-col-features">
-                <FeatureContributionPanel
-                  features={payload.contributing_features || []}
-                />
-              </div>
-              <div className="bottom-col-alerts">
-                <PhmAlertsPanel alerts={payload.alerts || []} />
-              </div>
-            </div>
-          </main>
+              )}
+            </main>
+          </div>
         </div>
       )}
     </>
