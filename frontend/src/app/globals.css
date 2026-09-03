@@ -53,6 +53,75 @@
             opacity: 0.35;
         }
 
+        /* RUL Overview Card */
+        .rul-overview-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 10px;
+            padding: 1.15rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.55rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .overview-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            letter-spacing: 0.5px;
+        }
+
+        .overview-badge {
+            font-size: 0.65rem;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.15);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .overview-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .overview-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+            padding: 0.15rem 0;
+        }
+
+        .row-label {
+            color: #94a3b8;
+            font-size: 0.82rem;
+        }
+
+        .row-val {
+            font-weight: 700;
+            color: #f1f5f9;
+            font-size: 0.85rem;
+        }
+
+        .overview-row.highlight-row {
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            padding-top: 0.55rem;
+            margin-top: 0.15rem;
+        }
+
         header {
             background: rgba(14, 21, 38, 0.85);
             backdrop-filter: blur(12px);
@@ -286,10 +355,15 @@
         /* MALE UAV DIGITAL TWIN MINI-CLONE SCHEMATIC (CENTER)  */
         /* ==================================================== */
         .uav-twin-panel {
-            overflow: hidden;
+            overflow: visible;
             display: flex;
             flex-direction: column;
             position: relative;
+        }
+
+        .uav-twin-panel > .panel-header {
+            position: relative;
+            z-index: 20;
         }
 
         .uav-hud-container {
@@ -301,7 +375,7 @@
             background: radial-gradient(circle at center, rgba(14, 28, 56, 0.4) 0%, rgba(7, 11, 20, 0.8) 100%);
             border-radius: 8px;
             border: 1px solid rgba(56, 189, 248, 0.15);
-            min-height: 250px;
+            min-height: 320px;
             overflow: hidden;
         }
 
@@ -342,7 +416,7 @@
 
         .uav-svg-model {
             width: 100%;
-            max-height: 255px;
+            height: auto;
             z-index: 10;
             filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.15));
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -460,6 +534,8 @@
         .uav-view-controls {
             display: flex;
             gap: 0.35rem;
+            position: relative;
+            z-index: 20;
         }
 
         .uav-btn-mini {
@@ -1860,72 +1936,88 @@
             position: relative;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            align-items: stretch;
+            margin-top: 0.75rem;
         }
 
-        .rul-arc-svg {
-            width: 100%;
-            max-width: 250px;
-            height: auto;
-            overflow: visible;
-        }
-
-        .arc-tick-text {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            fill: #64748b;
-            text-anchor: middle;
-        }
-
-        .rul-hero-readout {
-            position: absolute;
-            bottom: 8px;
+        /* Left: Hero RUL Card */
+        .rul-hero-card {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            text-align: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 10px;
         }
 
-        .rul-number-wrap {
+        .rul-hero-number-row {
             display: flex;
             align-items: baseline;
-            gap: 0.4rem;
+            gap: 0.75rem;
+        }
+
+        .rul-hero-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
         }
 
         .rul-big-number {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 2.8rem;
+            font-size: 3.5rem;
             font-weight: 900;
             line-height: 1;
-            text-shadow: 0 0 20px currentColor;
+            text-shadow: 0 0 25px currentColor;
         }
 
         .rul-big-unit {
-            font-size: 0.85rem;
-            color: #94a3b8;
-            font-weight: 700;
-            letter-spacing: 1px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        .rul-sub-remaining {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            font-size: 0.75rem;
-            color: #38bdf8;
+        .rul-big-unit-sub {
+            font-size: 0.65rem;
+            color: #64748b;
             font-weight: 600;
-            margin-top: 0.2rem;
-            background: rgba(56, 189, 248, 0.1);
-            padding: 0.15rem 0.5rem;
-            border-radius: 4px;
+            letter-spacing: 1px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
+        /* Linear Progress Bar */
+        .rul-progress-track {
+            position: relative;
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .rul-progress-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .rul-progress-marker {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Zone Legend */
         .rul-zone-legend {
             display: flex;
             justify-content: space-between;
-            margin-top: 0.6rem;
-            font-size: 0.62rem;
+            font-size: 0.6rem;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 600;
         }
@@ -1935,66 +2027,25 @@
         .zone-tag.zone-yellow { color: #f59e0b; }
         .zone-tag.zone-green { color: #10b981; }
 
-        /* RUL Overview Card */
-        .rul-overview-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 8px;
-            padding: 0.85rem;
-        }
-
-        .overview-header {
+        /* Time remaining pill */
+        .rul-time-pill {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            padding-bottom: 0.45rem;
-            margin-bottom: 0.55rem;
-        }
-
-        .overview-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #cbd5e1;
-            letter-spacing: 0.5px;
-        }
-
-        .overview-badge {
-            font-size: 0.62rem;
+            gap: 0.4rem;
+            font-size: 0.78rem;
             color: #38bdf8;
-            background: rgba(56, 189, 248, 0.15);
-            padding: 0.15rem 0.4rem;
-            border-radius: 4px;
+            font-weight: 600;
+            background: rgba(56, 189, 248, 0.08);
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid rgba(56, 189, 248, 0.15);
             font-family: 'JetBrains Mono', monospace;
         }
 
-        .overview-rows {
-            display: flex;
-            flex-direction: column;
-            gap: 0.45rem;
+        .rul-time-icon {
+            font-size: 1rem;
         }
 
-        .overview-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.74rem;
-        }
-
-        .row-label {
-            color: #94a3b8;
-        }
-
-        .row-val {
-            font-weight: 600;
-            color: #f8fafc;
-        }
-
-        .overview-row.highlight-row {
-            border-top: 1px dashed rgba(255, 255, 255, 0.08);
-            padding-top: 0.4rem;
-            margin-top: 0.2rem;
-        }
 
         /* Actual vs Predicted RUL Trajectory Panel */
         .rul-trajectory-panel {

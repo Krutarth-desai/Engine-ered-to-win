@@ -217,7 +217,7 @@ export default function DigitalTwinCenterpiece({
           <svg
             className="uav-svg-model"
             id="uav-svg"
-            viewBox="0 0 540 270"
+            viewBox="-10 -5 560 280"
             xmlns="http://www.w3.org/2000/svg"
             style={{ transform: svgTransform }}
           >
